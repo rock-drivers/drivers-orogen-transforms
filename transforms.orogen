@@ -73,3 +73,15 @@ task_context "PoseCombinationRBSTask" do
     output_port "object2newref_pose", "/base/samples/RigidBodyState"
     port_driven
 end
+
+# Task for aggregating multiple rbs samples sources and outputs a single time-ordered
+# stream
+task_context "RigidBodyStateAggregatorTask" do
+    needs_configuration
+
+    input_port("source2ref", "/base/samples/RigidBodyState").multiplexes
+
+    output_port "source2ref_aggregated", "/base/samples/RigidBodyState"
+
+    port_driven
+end
