@@ -95,7 +95,7 @@ task_context "RedundantRBSSelectorTask" do
 
     # Both sources are ok, but the secondary source is the one being forwarded. The
     # component is waiting the hysteresys period so it can go back forwarding main source
-    runtime_states :HYSTERESIS_WAIT
+    runtime_states :MAIN_SOURCE_RECOVERING
 
     # Main source is invalid due timeout or invalid data. Secondary is being forwarded
     runtime_states :INVALID_MAIN_SOURCE

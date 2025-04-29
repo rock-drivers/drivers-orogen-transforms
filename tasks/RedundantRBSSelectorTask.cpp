@@ -57,7 +57,7 @@ RedundantRBSSelectorTask::States updateState(
             if (now > internal.secondary_source_deadline) {
                 return updateState(States::INVALID_SECONDARY_SOURCE, internal);
             }
-        case States::HYSTERESIS_WAIT:
+        case States::MAIN_SOURCE_RECOVERING:
             if (now > internal.hysteresis_deadline ||
                 now > internal.secondary_source_deadline) {
                 return updateState(States::RUNNING, internal);
@@ -68,7 +68,7 @@ RedundantRBSSelectorTask::States updateState(
             }
             if (now > internal.main_source_deadline &&
                 internal.hysteresis_deadline.isNull()) {
-                return States::HYSTERESIS_WAIT;
+                return States::MAIN_SOURCE_RECOVERING;
             }
         case States::INVALID_SECONDARY_SOURCE:
             if (now > internal.main_source_deadline) {
@@ -107,7 +107,7 @@ void RedundantRBSSelectorTask::updateHook()
         case States::RUNNING:
             m_internal_state.hysteresis_deadline = base::Time();
             break;
-        case States::HYSTERESIS_WAIT:
+        case States::MAIN_SOURCE_RECOVERING:
             if (m_internal_state.hysteresis_deadline.isNull()) {
                 m_internal_state.hysteresis_deadline = now + _main_source_histeresys;
             }
