@@ -73,3 +73,38 @@ task_context "PoseCombinationRBSTask" do
     output_port "object2newref_pose", "/base/samples/RigidBodyState"
     port_driven
 end
+
+# Task for swithing between a main and a secondary rigid body state source. It forwards
+# the main source by default. The sencondary source is forwarded only when:
+#   - main source timeout
+#   - main source invalid data
+#   - main source is valid, but waiting for stabilization within hysteresis period after
+#     a timeout or invalid samples
+# If the component is at hysteresis wait state and the secondary source goes invalid, it
+# goes back to main source right away, not waiting for histeresys period termination
+task_context "RedundantRBSSelectorTask" do
+    needs_configuration
+
+    property "source_timeout", "/base/Time"
+    property "main_source_histeresys", "/base/Time"
+
+    input_port "main_rbs_source", "/base/samples/RigidBodyState"
+    input_port "secondary_rbs_source", "/base/samples/RigidBodyState"
+
+    output_port "rbs_out", "/base/samples/RigidBodyState"
+
+    # Both sources are ok, but the secondary source is the one being forwarded. The
+    # component is waiting the hysteresys period so it can go back forwarding main source
+    runtime_states :HYSTERESIS_WAIT
+
+    # Main source is invalid due timeout or invalid data. Secondary is being forwarded
+    runtime_states :INVALID_MAIN_SOURCE
+
+    # Secondary source is invalid or timeout
+    runtime_states :REDUNDANCY_OFF
+
+    # Both sources are invalid or timeout
+    exception_states :NO_VALID_SOURCES
+
+    port_driven
+end
