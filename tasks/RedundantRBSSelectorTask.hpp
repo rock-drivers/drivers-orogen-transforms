@@ -30,7 +30,32 @@ namespace transforms {
     class RedundantRBSSelectorTask : public RedundantRBSSelectorTaskBase {
         friend class RedundantRBSSelectorTaskBase;
 
+    public:
+        struct InternalState {
+            InternalState()
+                : main_source_deadline{base::Time()}
+                , secondary_source_deadline{base::Time()}
+                , hysteresis_deadline{base::Time()}
+            {
+            }
+
+            base::Time main_source_deadline;
+            base::Time secondary_source_deadline;
+
+            /**
+             * Non null only when on hysteresis period. That is, main source is back on
+             * after being invalid
+             */
+            base::Time hysteresis_deadline;
+
+        };
+
     protected:
+        base::Time m_source_timeout;
+        base::Time m_main_source_hysteresis;
+
+        InternalState m_internal_state;
+
     public:
         /** TaskContext constructor for RedundantRBSSelectorTask
          * \param name Name of the task. This name needs to be unique to make it
