@@ -101,7 +101,7 @@ task_context "RedundantRBSSelectorTask" do
     runtime_states :INVALID_MAIN_SOURCE
 
     # Secondary source is invalid or timeout
-    runtime_states :REDUNDANCY_OFF
+    runtime_states :INVALID_SECONDARY_SOURCE
 
     # Both sources are invalid or timeout
     exception_states :NO_VALID_SOURCES

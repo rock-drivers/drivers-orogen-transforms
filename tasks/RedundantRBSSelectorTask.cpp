@@ -55,7 +55,7 @@ RedundantRBSSelectorTask::States updateState(
             }
 
             if (now > internal.secondary_source_deadline) {
-                return updateState(States::REDUNDANCY_OFF, internal);
+                return updateState(States::INVALID_SECONDARY_SOURCE, internal);
             }
         case States::HYSTERESIS_WAIT:
             if (now > internal.hysteresis_deadline ||
@@ -70,7 +70,7 @@ RedundantRBSSelectorTask::States updateState(
                 internal.hysteresis_deadline.isNull()) {
                 return States::HYSTERESIS_WAIT;
             }
-        case States::REDUNDANCY_OFF:
+        case States::INVALID_SECONDARY_SOURCE:
             if (now > internal.main_source_deadline) {
                 return States::NO_VALID_SOURCES;
             }
@@ -133,7 +133,7 @@ void RedundantRBSSelectorTask::updateHook()
         return exception(States::NO_VALID_SOURCES);
     }
 
-    if (state() == States::RUNNING || state() == States::REDUNDANCY_OFF) {
+    if (state() == States::RUNNING || state() == States::INVALID_SECONDARY_SOURCE) {
         if (main_is_new_and_valid) {
             _rbs_out.write(main_rbs);
         }
