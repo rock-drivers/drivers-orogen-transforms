@@ -64,11 +64,24 @@ RedundantRBSSelectorTask::States updateState(
             }
             return States::RUNNING;
         case States::MAIN_SOURCE_RECOVERING:
-            if (now > internal.hysteresis_deadline ||
-                now > internal.secondary_source_deadline) {
-                return updateState(States::RUNNING, internal);
+            if (now > internal.main_source_deadline) {
+                if (now > internal.secondary_source_deadline) {
+                    return States::NO_VALID_SOURCES;
+                }
+                return States::INVALID_MAIN_SOURCE;
             }
-            return States::MAIN_SOURCE_RECOVERING;
+
+            if (now < internal.hysteresis_deadline) {
+                if (now > internal.secondary_source_deadline) {
+                    return States::INVALID_SECONDARY_SOURCE;
+                }
+                return States::MAIN_SOURCE_RECOVERING;
+            }
+
+            if (now > internal.secondary_source_deadline) {
+                return States::INVALID_SECONDARY_SOURCE;
+            }
+            return States::RUNNING;
         case States::INVALID_MAIN_SOURCE:
             if (now > internal.secondary_source_deadline) {
                 return States::NO_VALID_SOURCES;
