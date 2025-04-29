@@ -66,8 +66,7 @@ RedundantRBSSelectorTask::States updateState(
             if (now > internal.secondary_source_deadline) {
                 return States::NO_VALID_SOURCES;
             }
-            if (now > internal.main_source_deadline &&
-                internal.hysteresis_deadline.isNull()) {
+            if (now < internal.main_source_deadline) {
                 return States::MAIN_SOURCE_RECOVERING;
             }
         case States::INVALID_SECONDARY_SOURCE:
