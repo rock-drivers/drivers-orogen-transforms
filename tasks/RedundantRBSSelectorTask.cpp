@@ -51,11 +51,16 @@ RedundantRBSSelectorTask::States updateState(
     switch (current_state) {
         case States::RUNNING:
             if (now > internal.main_source_deadline) {
-                return updateState(States::INVALID_MAIN_SOURCE, internal);
+                if (now > internal.secondary_source_deadline) {
+                    return States::NO_VALID_SOURCES;
+                }
+                else {
+                    return States::INVALID_MAIN_SOURCE;
+                }
             }
 
             if (now > internal.secondary_source_deadline) {
-                return updateState(States::INVALID_SECONDARY_SOURCE, internal);
+                return States::INVALID_SECONDARY_SOURCE;
             }
             return States::RUNNING;
         case States::MAIN_SOURCE_RECOVERING:
