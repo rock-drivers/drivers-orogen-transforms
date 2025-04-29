@@ -57,11 +57,13 @@ RedundantRBSSelectorTask::States updateState(
             if (now > internal.secondary_source_deadline) {
                 return updateState(States::INVALID_SECONDARY_SOURCE, internal);
             }
+            return States::RUNNING;
         case States::MAIN_SOURCE_RECOVERING:
             if (now > internal.hysteresis_deadline ||
                 now > internal.secondary_source_deadline) {
                 return updateState(States::RUNNING, internal);
             }
+            return States::MAIN_SOURCE_RECOVERING;
         case States::INVALID_MAIN_SOURCE:
             if (now > internal.secondary_source_deadline) {
                 return States::NO_VALID_SOURCES;
@@ -69,6 +71,7 @@ RedundantRBSSelectorTask::States updateState(
             if (now < internal.main_source_deadline) {
                 return States::MAIN_SOURCE_RECOVERING;
             }
+            return States::INVALID_MAIN_SOURCE;
         case States::INVALID_SECONDARY_SOURCE:
             if (now > internal.main_source_deadline) {
                 return States::NO_VALID_SOURCES;
@@ -76,9 +79,11 @@ RedundantRBSSelectorTask::States updateState(
             if (now > internal.secondary_source_deadline) {
                 return States::RUNNING;
             }
+            return States::INVALID_SECONDARY_SOURCE;
         case States::NO_VALID_SOURCES:
+            return States::NO_VALID_SOURCES;
         default:
-            return current_state;
+            throw std::invalid_argument("invalid controller state");
     }
 }
 
@@ -120,7 +125,7 @@ void RedundantRBSSelectorTask::updateHook()
         case States::NO_VALID_SOURCES:
             break;
         default:
-            break;
+            throw std::invalid_argument("invalid controller state");
     }
 
     States next_state = updateState(state(), m_internal_state);
