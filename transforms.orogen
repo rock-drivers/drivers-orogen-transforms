@@ -106,5 +106,5 @@ task_context "RedundantRBSSelectorTask" do
     # Both sources are invalid or timeout
     exception_states :NO_VALID_SOURCES
 
-    port_driven
+    port_driven timeout: 0.02
 end
