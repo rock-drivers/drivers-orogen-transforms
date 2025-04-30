@@ -271,9 +271,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
     end
 
     def rbs(position)
-        cov3 = { data: [1, 0, 0,
-                        0, 1, 0,
-                        0, 0, 1] }
+        cov3 = { data: [NaN] * 9 }
         Types.base.samples.RigidBodyState.new(
             time: Time.now,
             position: position,
