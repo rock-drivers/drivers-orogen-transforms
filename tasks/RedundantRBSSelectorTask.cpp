@@ -79,16 +79,14 @@ RedundantRBSSelectorTask::States updateState(
                 return States::INVALID_MAIN_SOURCE;
             }
 
-            if (now < internal.hysteresis_deadline) {
-                if (!isSecondarySourceValid(internal)) {
-                    return States::INVALID_SECONDARY_SOURCE;
-                }
-                return States::MAIN_SOURCE_RECOVERING;
-            }
-
             if (!isSecondarySourceValid(internal)) {
                 return States::INVALID_SECONDARY_SOURCE;
             }
+
+            if (now < internal.hysteresis_deadline) {
+                return States::MAIN_SOURCE_RECOVERING;
+            }
+
             return States::BOTH_SOURCES_VALID;
         case States::INVALID_MAIN_SOURCE:
             if (!isSecondarySourceValid(internal)) {
