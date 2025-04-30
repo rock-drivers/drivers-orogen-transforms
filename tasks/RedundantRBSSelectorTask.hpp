@@ -51,6 +51,7 @@ namespace transforms {
         };
 
     protected:
+        bool m_first_cycle;
         base::Time m_source_timeout;
         base::Time m_main_source_hysteresis;
 
