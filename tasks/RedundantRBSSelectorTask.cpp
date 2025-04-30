@@ -214,7 +214,7 @@ void RedundantRBSSelectorTask::cleanupHook()
 bool rbsIsValid(base::samples::RigidBodyState const& rbs)
 {
     if (rbs.hasValidPosition() && rbs.hasValidVelocity() &&
-        rbs.hasValidAngularVelocity()) {
+        rbs.hasValidAngularVelocity() && rbs.hasValidOrientation()) {
         return true;
     }
 

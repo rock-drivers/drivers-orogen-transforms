@@ -42,6 +42,47 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         end
     end
 
+    describe "validates rbs sources" do
+        it "validates position" do
+            rbs_s = rbs
+            rbs_s.position = { data: [NaN] * 3 }
+            assert_no_valid_sources rbs_s
+        end
+
+        it "validates orientation" do
+            rbs_s = rbs
+            rbs_s.orientation = { im: [NaN] * 3, re: NaN }
+            assert_no_valid_sources rbs_s
+        end
+
+        it "validates linear velocity" do
+            rbs_s = rbs
+            rbs_s.velocity = { data: [NaN] * 3 }
+            assert_no_valid_sources rbs_s
+        end
+
+        it "validates angular velocity" do
+            rbs_s = rbs
+            rbs_s.angular_velocity = { data: [NaN] * 3 }
+            assert_no_valid_sources rbs_s
+        end
+
+        def assert_no_valid_sources(invalid_rbs)
+            syskit_start(task)
+
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+
+            expect_execution.poll do
+                main_w.write invalid_rbs
+                secondary_w.write invalid_rbs
+            end.to do
+                emit task.no_valid_sources_event
+                emit task.exception_event
+            end
+        end
+    end
+
     describe "transitions from MAIN_SOURCE_RECOVERING" do
         it "transition from MAIN_SOURCE_RECOVERING to NO_VALID_SOURCES" do
             syskit_start(task)
@@ -270,7 +311,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         ] - except
     end
 
-    def rbs(position)
+    def rbs(position = { data: [0] * 3 })
         cov3 = { data: [NaN] * 9 }
         Types.base.samples.RigidBodyState.new(
             time: Time.now,
