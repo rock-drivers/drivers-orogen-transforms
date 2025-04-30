@@ -64,9 +64,7 @@ RedundantRBSSelectorTask::States updateState(
                 if (!isSecondarySourceValid(internal)) {
                     return States::NO_VALID_SOURCES;
                 }
-                else {
-                    return States::INVALID_MAIN_SOURCE;
-                }
+                return States::INVALID_MAIN_SOURCE;
             }
 
             if (!isSecondarySourceValid(internal)) {
