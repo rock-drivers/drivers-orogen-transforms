@@ -57,6 +57,9 @@ namespace transforms {
 
         InternalState m_internal_state;
 
+        bool updateMainSource(base::samples::RigidBodyState const& rbs);
+        bool updateSecondarySource(base::samples::RigidBodyState const& rbs);
+
     public:
         /** TaskContext constructor for RedundantRBSSelectorTask
          * \param name Name of the task. This name needs to be unique to make it
