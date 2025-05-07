@@ -16,6 +16,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         @task.properties.source_timeout = Time.at(1)
         @task.properties.main_source_histeresys = Time.at(5)
         @task.properties.init_timeout = Time.at(1)
+        @task.properties.position_threshold = 2
+        @task.properties.orientation_thresholds = [0.5, 0.4, 0.3]
 
         syskit_configure(@task)
     end
@@ -39,6 +41,154 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         end
 
         assert_equal([1] * 20, out.map { |v| v.position.x })
+    end
+
+    describe "pose comparation" do
+        it "returns true when the position diference is bigger than the position "\
+        "threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            expect_execution { task.start! }.to { emit task.both_sources_valid_event }
+            main_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs = rbs({ data: [-5, 0, 0] })
+            result = expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            assert_equal(1, result.different)
+        end
+
+        it "returns false when the position difference is smaller than the position "\
+        "threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            expect_execution { task.start! }.to { emit task.both_sources_valid_event }
+            main_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs = rbs({ data: [2, 0, 0] })
+            result = expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            assert_equal(0, result.different)
+        end
+
+        it "returns true when the yaw difference is bigger than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            expect_execution { task.start! }.to { emit task.both_sources_valid_event }
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.4, Eigen::Vector3.UnitZ)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0.2, Eigen::Vector3.UnitZ)
+            result = expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            assert_equal(1, result.different)
+        end
+
+        it "returns false when the yaw difference is smaller than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            expect_execution { task.start! }.to { emit task.both_sources_valid_event }
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.4, Eigen::Vector3.UnitZ)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0, Eigen::Vector3.UnitZ)
+            result = expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            assert_equal(0, result.different)
+        end
+
+        it "returns true when the pitch difference is bigger than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            expect_execution { task.start! }.to { emit task.both_sources_valid_event }
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.5, Eigen::Vector3.UnitY)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0, Eigen::Vector3.UnitY)
+            result = expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            assert_equal(1, result.different)
+        end
+
+        it "returns false when the pitch difference is smaller than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            expect_execution { task.start! }.to { emit task.both_sources_valid_event }
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.3, Eigen::Vector3.UnitY)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0, Eigen::Vector3.UnitY)
+            result = expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            assert_equal(0, result.different)
+        end
+
+        it "returns true when the roll difference is bigger than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            expect_execution { task.start! }.to { emit task.both_sources_valid_event }
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0.1, Eigen::Vector3.UnitX)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.3, Eigen::Vector3.UnitX)
+            result = expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            assert_equal(1, result.different)
+        end
+
+        it "returns false when the roll difference is smaller than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            expect_execution { task.start! }.to { emit task.both_sources_valid_event }
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.1, Eigen::Vector3.UnitX)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.3, Eigen::Vector3.UnitX)
+            result = expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            assert_equal(0, result.different)
+        end
     end
 
     describe "validates rbs sources" do
@@ -242,7 +392,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             main_w = syskit_create_writer task.main_rbs_source_port
             secondary_w = syskit_create_writer task.secondary_rbs_source_port
 
-            rbs_s = rbs( { data: [1, 2, 3] })
+            rbs_s = rbs({ data: [1, 2, 3] })
             expect_execution.poll do
                 secondary_w.write rbs_s
             end.to do

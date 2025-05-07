@@ -3,8 +3,9 @@
 #include "RedundantRBSSelectorTask.hpp"
 
 using namespace transforms;
+using namespace base;
 
-bool rbsIsValid(base::samples::RigidBodyState const& rbs);
+bool rbsIsValid(RigidBodyState const& rbs);
 
 RedundantRBSSelectorTask::RedundantRBSSelectorTask(std::string const& name)
     : RedundantRBSSelectorTaskBase(name)
@@ -26,6 +27,8 @@ bool RedundantRBSSelectorTask::configureHook()
         return false;
     m_source_timeout = _source_timeout.get();
     m_main_source_hysteresis = _source_timeout.get();
+    m_position_threshold = _position_threshold.get();
+    m_orientation_thresholds = _orientation_thresholds.get();
     return true;
 }
 bool RedundantRBSSelectorTask::startHook()
@@ -46,6 +49,11 @@ bool isMainSourceValid(RedundantRBSSelectorTask::InternalState const& state)
 bool isSecondarySourceValid(RedundantRBSSelectorTask::InternalState const& state)
 {
     return base::Time::now() < state.secondary_source_deadline;
+}
+
+bool isDifferenceOutsideThreshold(double first, double second, double threshold)
+{
+    return std::abs(first - second) > threshold;
 }
 
 RedundantRBSSelectorTask::States updateState(
@@ -111,7 +119,7 @@ RedundantRBSSelectorTask::States updateState(
     }
 }
 
-bool RedundantRBSSelectorTask::updateMainSource(base::samples::RigidBodyState const& rbs)
+bool RedundantRBSSelectorTask::updateMainSource(RigidBodyState const& rbs)
 {
     if (rbsIsValid(rbs)) {
         m_internal_state.main_source_deadline = base::Time::now() + m_source_timeout;
@@ -121,8 +129,7 @@ bool RedundantRBSSelectorTask::updateMainSource(base::samples::RigidBodyState co
     return false;
 }
 
-bool RedundantRBSSelectorTask::updateSecondarySource(
-    base::samples::RigidBodyState const& rbs)
+bool RedundantRBSSelectorTask::updateSecondarySource(RigidBodyState const& rbs)
 {
     if (rbsIsValid(rbs)) {
         m_internal_state.secondary_source_deadline = base::Time::now() + m_source_timeout;
@@ -137,15 +144,22 @@ void RedundantRBSSelectorTask::updateHook()
     RedundantRBSSelectorTaskBase::updateHook();
 
     bool main_is_new_and_valid{false};
-    base::samples::RigidBodyState main_rbs;
+    RigidBodyState main_rbs;
     if (_main_rbs_source.read(main_rbs) == RTT::NewData) {
         main_is_new_and_valid = updateMainSource(main_rbs);
     }
 
     bool secondary_is_new_and_valid{false};
-    base::samples::RigidBodyState secondary_rbs;
+    RigidBodyState secondary_rbs;
     if (_secondary_rbs_source.read(secondary_rbs) == RTT::NewData) {
         secondary_is_new_and_valid = updateSecondarySource(secondary_rbs);
+    }
+
+    if (main_is_new_and_valid && secondary_is_new_and_valid) {
+        PoseDivergence pose_divergence;
+        pose_divergence.different = arePosesDivergent(main_rbs, secondary_rbs);
+        pose_divergence.time = base::Time::now();
+        _pose_divergence.write(pose_divergence);
     }
 
     switch (state()) {
@@ -194,6 +208,29 @@ void RedundantRBSSelectorTask::updateHook()
         }
     }
 }
+
+bool RedundantRBSSelectorTask::areOrientationDivergent(Orientation first,
+    Orientation second)
+{
+    Vector3d diff_orientation = getEuler(first) - getEuler(second);
+    for (size_t i = 0; i < 3; i++) {
+        if (std::fabs(Angle::normalizeRad(diff_orientation[i])) >
+            m_orientation_thresholds[i]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RedundantRBSSelectorTask::arePosesDivergent(samples::RigidBodyState const& first,
+    samples::RigidBodyState const& second)
+{
+    bool position_status =
+        ((first.position - second.position).norm() > m_position_threshold);
+    return position_status ||
+           areOrientationDivergent(first.orientation, second.orientation);
+}
+
 void RedundantRBSSelectorTask::errorHook()
 {
     RedundantRBSSelectorTaskBase::errorHook();
@@ -207,7 +244,7 @@ void RedundantRBSSelectorTask::cleanupHook()
     RedundantRBSSelectorTaskBase::cleanupHook();
 }
 
-bool rbsIsValid(base::samples::RigidBodyState const& rbs)
+bool rbsIsValid(RigidBodyState const& rbs)
 {
     if (rbs.hasValidPosition() && rbs.hasValidVelocity() &&
         rbs.hasValidAngularVelocity() && rbs.hasValidOrientation()) {

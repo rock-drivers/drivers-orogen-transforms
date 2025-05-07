@@ -8,6 +8,8 @@ import_types_from "transformsTypes.hpp"
 import_types_from "std"
 import_types_from "base"
 
+typekit.export_types "/transforms/PoseDivergence"
+
 # Task that changes the source frame of a pose and twist combination expressed
 # as RigidBodyState
 #
@@ -105,11 +107,15 @@ task_context "RedundantRBSSelectorTask" do
     #
     # This should be relatively high (e.g. 30s)
     property "main_source_histeresys", "/base/Time"
+    property "position_threshold", "double"
+    property "orientation_thresholds", "/std/vector<double>"
 
     input_port "main_rbs_source", "/base/samples/RigidBodyState"
     input_port "secondary_rbs_source", "/base/samples/RigidBodyState"
 
     output_port "rbs_out", "/base/samples/RigidBodyState"
+    # Returns if two pose sources are outside thresholds
+    output_port "pose_divergence", "/transforms/PoseDivergence"
 
     # Initial state. Both sources ok, main is being forwarded.
     runtime_states :BOTH_SOURCES_VALID
