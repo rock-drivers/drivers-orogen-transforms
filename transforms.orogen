@@ -85,7 +85,21 @@ end
 task_context "RedundantRBSSelectorTask" do
     needs_configuration
 
+    # How long without valid data on a port before the source is considered
+    # invalid
+    #
+    # It needs to be set to a low value, but still has to be a significant
+    # number of the source periods
     property "source_timeout", "/base/Time"
+
+    # When the main source becomes valid again, the component will make sure it
+    # remains valid for this long until it switches back to main
+    #
+    # This is to avoid rapid main/secondary switching if the main source is
+    # unstable. The switch is instantaneous if the secondary source becomes
+    # invalid
+    #
+    # This should be relatively high (e.g. 30s)
     property "main_source_histeresys", "/base/Time"
 
     input_port "main_rbs_source", "/base/samples/RigidBodyState"
