@@ -5,7 +5,7 @@
 using namespace transforms;
 using namespace base;
 
-bool rbsIsValid(RigidBodyState const& rbs);
+bool rbsIsValid(samples::RigidBodyState const& rbs);
 
 RedundantRBSSelectorTask::RedundantRBSSelectorTask(std::string const& name)
     : RedundantRBSSelectorTaskBase(name)
@@ -119,7 +119,7 @@ RedundantRBSSelectorTask::States updateState(
     }
 }
 
-bool RedundantRBSSelectorTask::updateMainSource(RigidBodyState const& rbs)
+bool RedundantRBSSelectorTask::updateMainSource(samples::RigidBodyState const& rbs)
 {
     if (rbsIsValid(rbs)) {
         m_internal_state.main_source_deadline = base::Time::now() + m_source_timeout;
@@ -129,7 +129,7 @@ bool RedundantRBSSelectorTask::updateMainSource(RigidBodyState const& rbs)
     return false;
 }
 
-bool RedundantRBSSelectorTask::updateSecondarySource(RigidBodyState const& rbs)
+bool RedundantRBSSelectorTask::updateSecondarySource(samples::RigidBodyState const& rbs)
 {
     if (rbsIsValid(rbs)) {
         m_internal_state.secondary_source_deadline = base::Time::now() + m_source_timeout;
@@ -144,13 +144,13 @@ void RedundantRBSSelectorTask::updateHook()
     RedundantRBSSelectorTaskBase::updateHook();
 
     bool main_is_new_and_valid{false};
-    RigidBodyState main_rbs;
+    samples::RigidBodyState main_rbs;
     if (_main_rbs_source.read(main_rbs) == RTT::NewData) {
         main_is_new_and_valid = updateMainSource(main_rbs);
     }
 
     bool secondary_is_new_and_valid{false};
-    RigidBodyState secondary_rbs;
+    samples::RigidBodyState secondary_rbs;
     if (_secondary_rbs_source.read(secondary_rbs) == RTT::NewData) {
         secondary_is_new_and_valid = updateSecondarySource(secondary_rbs);
     }
@@ -244,7 +244,7 @@ void RedundantRBSSelectorTask::cleanupHook()
     RedundantRBSSelectorTaskBase::cleanupHook();
 }
 
-bool rbsIsValid(RigidBodyState const& rbs)
+bool rbsIsValid(samples::RigidBodyState const& rbs)
 {
     if (rbs.hasValidPosition() && rbs.hasValidVelocity() &&
         rbs.hasValidAngularVelocity() && rbs.hasValidOrientation()) {
