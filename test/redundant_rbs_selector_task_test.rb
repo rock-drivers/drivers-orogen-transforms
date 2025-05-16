@@ -57,7 +57,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            assert_equal(1, result.different)
+            expected = { position_divergent: 1, position_error_norm: 6 }
+            assert_divergence(result, expected)
         end
 
         it "returns false when the position difference is smaller than the position "\
@@ -73,7 +74,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            assert_equal(0, result.different)
+            expected = { position_error_norm: 1 }
+            assert_divergence(result, expected)
         end
 
         it "returns true when the yaw difference is bigger than its threshold" do
@@ -92,7 +94,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            assert_equal(1, result.different)
+            expected = { yaw_divergent: 1, yaw_error: -0.6 }
+            assert_divergence(result, expected)
         end
 
         it "returns false when the yaw difference is smaller than its threshold" do
@@ -101,7 +104,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             expect_execution { task.start! }.to { emit task.both_sources_valid_event }
             main_rbs = rbs({ data: [1, 0, 0] })
             main_rbs.orientation =
-                Eigen::Quaternion.from_angle_axis(-0.4, Eigen::Vector3.UnitZ)
+                Eigen::Quaternion.from_angle_axis(-0.2, Eigen::Vector3.UnitZ)
             secondary_rbs = rbs({ data: [1, 0, 0] })
             secondary_rbs.orientation =
                 Eigen::Quaternion.from_angle_axis(0, Eigen::Vector3.UnitZ)
@@ -111,7 +114,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            assert_equal(0, result.different)
+            expected = { yaw_error: -0.2 }
+            assert_divergence(result, expected)
         end
 
         it "returns true when the pitch difference is bigger than its threshold" do
@@ -130,7 +134,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            assert_equal(1, result.different)
+            expected = { pitch_divergent: 1, pitch_error: -0.5 }
+            assert_divergence(result, expected)
         end
 
         it "returns false when the pitch difference is smaller than its threshold" do
@@ -149,7 +154,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            assert_equal(0, result.different)
+            expected = { pitch_error: -0.3 }
+            assert_divergence(result, expected)
         end
 
         it "returns true when the roll difference is bigger than its threshold" do
@@ -161,14 +167,15 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
                 Eigen::Quaternion.from_angle_axis(0.1, Eigen::Vector3.UnitX)
             secondary_rbs = rbs({ data: [1, 0, 0] })
             secondary_rbs.orientation =
-                Eigen::Quaternion.from_angle_axis(-0.3, Eigen::Vector3.UnitX)
+                Eigen::Quaternion.from_angle_axis(-0.6, Eigen::Vector3.UnitX)
             result = expect_execution.poll do
                 main_w.write main_rbs
                 secondary_w.write secondary_rbs
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            assert_equal(1, result.different)
+            expected = { roll_divergent: 1, roll_error: 0.7 }
+            assert_divergence(result, expected)
         end
 
         it "returns false when the roll difference is smaller than its threshold" do
@@ -187,7 +194,23 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            assert_equal(0, result.different)
+            expected = { roll_error: 0.2 }
+            assert_divergence(result, expected)
+        end
+
+        def assert_divergence(
+            result, position_divergent: 0, roll_divergent: 0, pitch_divergent: 0,
+            yaw_divergent: 0, position_error_norm: 0, roll_error: 0, pitch_error: 0,
+            yaw_error: 0
+        )
+            assert_equal(result.position_divergent, position_divergent)
+            assert_equal(result.roll_divergent, roll_divergent)
+            assert_equal(result.pitch_divergent, pitch_divergent)
+            assert_equal(result.yaw_divergent, yaw_divergent)
+            assert_in_delta(result.position_error_norm, position_error_norm, 1e-3)
+            assert_in_delta(result.roll_error.rad, roll_error, 1e-3)
+            assert_in_delta(result.pitch_error.rad, pitch_error, 1e-3)
+            assert_in_delta(result.yaw_error.rad, yaw_error, 1e-3)
         end
     end
 

@@ -156,9 +156,7 @@ void RedundantRBSSelectorTask::updateHook()
     }
 
     if (main_is_new_and_valid && secondary_is_new_and_valid) {
-        PoseDivergence pose_divergence;
-        pose_divergence.different = arePosesDivergent(main_rbs, secondary_rbs);
-        pose_divergence.time = base::Time::now();
+        PoseDivergence pose_divergence = checkDivergences(main_rbs, secondary_rbs);
         _pose_divergence.write(pose_divergence);
     }
 
@@ -209,26 +207,27 @@ void RedundantRBSSelectorTask::updateHook()
     }
 }
 
-bool RedundantRBSSelectorTask::areOrientationDivergent(Orientation first,
-    Orientation second)
-{
-    Vector3d diff_orientation = getEuler(first) - getEuler(second);
-    for (size_t i = 0; i < 3; i++) {
-        if (std::fabs(Angle::normalizeRad(diff_orientation[i])) >
-            m_orientation_thresholds[i]) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool RedundantRBSSelectorTask::arePosesDivergent(samples::RigidBodyState const& first,
+PoseDivergence RedundantRBSSelectorTask::checkDivergences(
+    samples::RigidBodyState const& first,
     samples::RigidBodyState const& second)
 {
-    bool position_status =
-        ((first.position - second.position).norm() > m_position_threshold);
-    return position_status ||
-           areOrientationDivergent(first.orientation, second.orientation);
+    PoseDivergence divergence;
+    divergence.time = base::Time::now();
+    divergence.position_error_norm = (first.position - second.position).norm();
+    divergence.position_divergent = divergence.position_error_norm > m_position_threshold;
+    divergence.roll_error =
+        base::Angle::fromRad(first.getRoll()) - base::Angle::fromRad(second.getRoll());
+    divergence.pitch_error =
+        base::Angle::fromRad(first.getPitch()) - base::Angle::fromRad(second.getPitch());
+    divergence.yaw_error =
+        base::Angle::fromRad(first.getYaw()) - base::Angle::fromRad(second.getYaw());
+    divergence.roll_divergent =
+        std::fabs(divergence.roll_error.getRad()) > m_orientation_thresholds[0];
+    divergence.pitch_divergent =
+        std::fabs(divergence.pitch_error.getRad()) > m_orientation_thresholds[1];
+    divergence.yaw_divergent =
+        std::fabs(divergence.yaw_error.getRad()) > m_orientation_thresholds[2];
+    return divergence;
 }
 
 void RedundantRBSSelectorTask::errorHook()
