@@ -61,28 +61,15 @@ namespace transforms {
         bool updateMainSource(base::samples::RigidBodyState const& rbs);
         bool updateSecondarySource(base::samples::RigidBodyState const& rbs);
         /**
-         * Verify if the difference between two poses are bigger than the thresholds
+         * @brief Checks if the difference between two poses are bigger than the
+         * thresholds
          *
          * @param first The first pose to compare
          * @param second The second pose to compare
-         * @return true if at least one of the difference (position, roll, pitch, yaw) are
-         * bigger than the threshold
-         * @return false if all differences (position, roll, pitch, yaw) are
-         * smaller than its thresholds
+         * @return PoseDivergence The divergences between the poses
          */
-        bool arePosesDivergent(base::samples::RigidBodyState const& first,
+        PoseDivergence checkDivergences(base::samples::RigidBodyState const& first,
             base::samples::RigidBodyState const& second);
-        /**
-         * Verify if the difference between two eulers are bigger than the thresholds
-         *
-         * @param first The first orientation to compare
-         * @param second The second orientation to compare
-         * @return true if at least one of the orientation difference (roll, pitch, yaw)
-         * is bigger than the threshold
-         * @return false if all orientation differences (roll, pitch, yaw) are smaller
-         * than its thresholds
-         */
-        bool areOrientationDivergent(base::Orientation first, base::Orientation second);
 
     public:
         /** TaskContext constructor for RedundantRBSSelectorTask
