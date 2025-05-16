@@ -54,7 +54,7 @@ namespace transforms {
         base::Time m_source_timeout;
         base::Time m_main_source_hysteresis;
         double m_position_threshold;
-        std::vector<double> m_orientation_thresholds;
+        AngleErrorThresholds m_angle_error_thresholds;
 
         InternalState m_internal_state;
 

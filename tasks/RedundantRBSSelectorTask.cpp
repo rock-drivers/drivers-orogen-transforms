@@ -28,7 +28,7 @@ bool RedundantRBSSelectorTask::configureHook()
     m_source_timeout = _source_timeout.get();
     m_main_source_hysteresis = _source_timeout.get();
     m_position_threshold = _position_threshold.get();
-    m_orientation_thresholds = _orientation_thresholds.get();
+    m_angle_error_thresholds = _angle_error_thresholds.get();
     return true;
 }
 bool RedundantRBSSelectorTask::startHook()
@@ -222,11 +222,11 @@ PoseDivergence RedundantRBSSelectorTask::checkDivergences(
     divergence.yaw_error =
         base::Angle::fromRad(first.getYaw()) - base::Angle::fromRad(second.getYaw());
     divergence.roll_divergent =
-        std::fabs(divergence.roll_error.getRad()) > m_orientation_thresholds[0];
+        std::fabs(divergence.roll_error.getRad()) > m_angle_error_thresholds.roll;
     divergence.pitch_divergent =
-        std::fabs(divergence.pitch_error.getRad()) > m_orientation_thresholds[1];
+        std::fabs(divergence.pitch_error.getRad()) > m_angle_error_thresholds.pitch;
     divergence.yaw_divergent =
-        std::fabs(divergence.yaw_error.getRad()) > m_orientation_thresholds[2];
+        std::fabs(divergence.yaw_error.getRad()) > m_angle_error_thresholds.yaw;
     return divergence;
 }
 

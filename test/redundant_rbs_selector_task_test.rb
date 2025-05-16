@@ -17,7 +17,9 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         @task.properties.main_source_histeresys = Time.at(5)
         @task.properties.init_timeout = Time.at(1)
         @task.properties.position_threshold = 2
-        @task.properties.orientation_thresholds = [0.5, 0.4, 0.3]
+        @task.properties.angle_error_thresholds = Types.transforms.AngleErrorThresholds.new(
+            roll: 0.5, pitch: 0.4, yaw: 0.3
+        )
 
         syskit_configure(@task)
     end
