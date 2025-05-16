@@ -24,6 +24,11 @@ namespace transforms {
         base::Angle yaw_error;
         base::Angle pitch_error;
     };
+    struct AngleErrorThresholds {
+        double roll = base::unknown<double>();
+        double pitch = base::unknown<double>();
+        double yaw = base::unknown<double>();
+    };
 }
 
 #endif
