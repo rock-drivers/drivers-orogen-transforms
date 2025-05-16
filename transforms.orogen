@@ -107,8 +107,10 @@ task_context "RedundantRBSSelectorTask" do
     #
     # This should be relatively high (e.g. 30s)
     property "main_source_histeresys", "/base/Time"
-    property "position_threshold", "double"
-    property "angle_error_thresholds", "/transforms/AngleErrorThresholds"
+    # The maximum position norm error between two pose sources
+    property "position_error_threshold", "double"
+    # The maximum euler angles error between two pose sources
+    property "angles_error_thresholds", "/transforms/AngleErrorThresholds"
 
     input_port "main_rbs_source", "/base/samples/RigidBodyState"
     input_port "secondary_rbs_source", "/base/samples/RigidBodyState"

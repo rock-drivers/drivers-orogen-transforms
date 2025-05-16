@@ -53,8 +53,8 @@ namespace transforms {
     protected:
         base::Time m_source_timeout;
         base::Time m_main_source_hysteresis;
-        double m_position_threshold;
-        AngleErrorThresholds m_angle_error_thresholds;
+        double m_position_error_threshold;
+        AngleErrorThresholds m_angles_error_thresholds;
 
         InternalState m_internal_state;
 
