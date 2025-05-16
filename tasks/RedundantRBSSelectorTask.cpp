@@ -3,8 +3,9 @@
 #include "RedundantRBSSelectorTask.hpp"
 
 using namespace transforms;
+using namespace base;
 
-bool rbsIsValid(base::samples::RigidBodyState const& rbs);
+bool rbsIsValid(samples::RigidBodyState const& rbs);
 
 RedundantRBSSelectorTask::RedundantRBSSelectorTask(std::string const& name)
     : RedundantRBSSelectorTaskBase(name)
@@ -25,6 +26,8 @@ bool RedundantRBSSelectorTask::configureHook()
         return false;
     m_source_timeout = _source_timeout.get();
     m_main_source_hysteresis = _source_timeout.get();
+    m_position_error_threshold = _position_error_threshold.get();
+    m_angles_error_thresholds = _angles_error_thresholds.get();
     return true;
 }
 bool RedundantRBSSelectorTask::startHook()
@@ -48,6 +51,11 @@ bool isMainSourceValid(RedundantRBSSelectorTask::InternalState const& state)
 bool isSecondarySourceValid(RedundantRBSSelectorTask::InternalState const& state)
 {
     return base::Time::now() < state.secondary_source_deadline;
+}
+
+bool isDifferenceOutsideThreshold(double first, double second, double threshold)
+{
+    return std::abs(first - second) > threshold;
 }
 
 RedundantRBSSelectorTask::States updateState(
@@ -111,7 +119,7 @@ RedundantRBSSelectorTask::States updateState(
     }
 }
 
-bool RedundantRBSSelectorTask::updateMainSource(base::samples::RigidBodyState const& rbs)
+bool RedundantRBSSelectorTask::updateMainSource(samples::RigidBodyState const& rbs)
 {
     if (rbsIsValid(rbs)) {
         m_internal_state.main_source_deadline = base::Time::now() + m_source_timeout;
@@ -121,8 +129,7 @@ bool RedundantRBSSelectorTask::updateMainSource(base::samples::RigidBodyState co
     return false;
 }
 
-bool RedundantRBSSelectorTask::updateSecondarySource(
-    base::samples::RigidBodyState const& rbs)
+bool RedundantRBSSelectorTask::updateSecondarySource(samples::RigidBodyState const& rbs)
 {
     if (rbsIsValid(rbs)) {
         m_internal_state.secondary_source_deadline = base::Time::now() + m_source_timeout;
@@ -142,15 +149,20 @@ void RedundantRBSSelectorTask::updateHook()
     }
 
     bool main_is_new_and_valid{false};
-    base::samples::RigidBodyState main_rbs;
+    samples::RigidBodyState main_rbs;
     if (_main_rbs_source.read(main_rbs) == RTT::NewData) {
         main_is_new_and_valid = updateMainSource(main_rbs);
     }
 
     bool secondary_is_new_and_valid{false};
-    base::samples::RigidBodyState secondary_rbs;
+    samples::RigidBodyState secondary_rbs;
     if (_secondary_rbs_source.read(secondary_rbs) == RTT::NewData) {
         secondary_is_new_and_valid = updateSecondarySource(secondary_rbs);
+    }
+
+    if (main_is_new_and_valid && secondary_is_new_and_valid) {
+        PoseDivergence pose_divergence = checkDivergences(main_rbs, secondary_rbs);
+        _pose_divergence.write(pose_divergence);
     }
 
     switch (state()) {
@@ -194,6 +206,31 @@ void RedundantRBSSelectorTask::updateHook()
         _rbs_out.write(secondary_rbs);
     }
 }
+
+PoseDivergence RedundantRBSSelectorTask::checkDivergences(
+    samples::RigidBodyState const& first,
+    samples::RigidBodyState const& second)
+{
+    PoseDivergence divergence;
+    divergence.time = base::Time::now();
+    divergence.position_error_norm = (first.position - second.position).norm();
+    divergence.position_divergent =
+        divergence.position_error_norm > m_position_error_threshold;
+    divergence.roll_error =
+        base::Angle::fromRad(first.getRoll()) - base::Angle::fromRad(second.getRoll());
+    divergence.pitch_error =
+        base::Angle::fromRad(first.getPitch()) - base::Angle::fromRad(second.getPitch());
+    divergence.yaw_error =
+        base::Angle::fromRad(first.getYaw()) - base::Angle::fromRad(second.getYaw());
+    divergence.roll_divergent =
+        std::fabs(divergence.roll_error.getRad()) > m_angles_error_thresholds.roll;
+    divergence.pitch_divergent =
+        std::fabs(divergence.pitch_error.getRad()) > m_angles_error_thresholds.pitch;
+    divergence.yaw_divergent =
+        std::fabs(divergence.yaw_error.getRad()) > m_angles_error_thresholds.yaw;
+    return divergence;
+}
+
 void RedundantRBSSelectorTask::errorHook()
 {
     RedundantRBSSelectorTaskBase::errorHook();
@@ -207,7 +244,7 @@ void RedundantRBSSelectorTask::cleanupHook()
     RedundantRBSSelectorTaskBase::cleanupHook();
 }
 
-bool rbsIsValid(base::samples::RigidBodyState const& rbs)
+bool rbsIsValid(samples::RigidBodyState const& rbs)
 {
     if (rbs.hasValidPosition() && rbs.hasValidVelocity() &&
         rbs.hasValidAngularVelocity() && rbs.hasValidOrientation()) {
