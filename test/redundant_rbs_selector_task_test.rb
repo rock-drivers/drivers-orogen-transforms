@@ -18,7 +18,9 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         @task.properties.init_timeout = Time.at(1)
         @task.properties.position_error_threshold = 2
         @task.properties.angles_error_thresholds = Types.transforms.AngleErrorThresholds.new(
-            roll: 0.5, pitch: 0.4, yaw: 0.3
+            roll: Types.base.Angle.new( rad: 0.5),
+            pitch: Types.base.Angle.new( rad: 0.4),
+            yaw: Types.base.Angle.new( rad: 0.3)
         )
 
         syskit_configure(@task)
@@ -59,7 +61,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            expected = { position_divergent: 1, position_error_norm: 6 }
+            expected = { position_divergent: 1, position_error: 6 }
             assert_divergence(result, expected)
         end
 
@@ -76,7 +78,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            expected = { position_error_norm: 1 }
+            expected = { position_error: 1 }
             assert_divergence(result, expected)
         end
 
@@ -96,7 +98,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            expected = { yaw_divergent: 1, yaw_error: -0.6 }
+            expected = { yaw_divergent: 1, yaw_error: 0.6 }
             assert_divergence(result, expected)
         end
 
@@ -116,7 +118,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            expected = { yaw_error: -0.2 }
+            expected = { yaw_error: 0.2 }
             assert_divergence(result, expected)
         end
 
@@ -136,7 +138,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            expected = { pitch_divergent: 1, pitch_error: -0.5 }
+            expected = { pitch_divergent: 1, pitch_error: 0.5 }
             assert_divergence(result, expected)
         end
 
@@ -156,7 +158,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end.to do
                 have_one_new_sample(task.pose_divergence_port)
             end
-            expected = { pitch_error: -0.3 }
+            expected = { pitch_error: 0.3 }
             assert_divergence(result, expected)
         end
 
@@ -202,17 +204,17 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
 
         def assert_divergence(
             result, position_divergent: 0, roll_divergent: 0, pitch_divergent: 0,
-            yaw_divergent: 0, position_error_norm: 0, roll_error: 0, pitch_error: 0,
+            yaw_divergent: 0, position_error: 0, roll_error: 0, pitch_error: 0,
             yaw_error: 0
         )
-            assert_equal(result.position_divergent, position_divergent)
-            assert_equal(result.roll_divergent, roll_divergent)
-            assert_equal(result.pitch_divergent, pitch_divergent)
-            assert_equal(result.yaw_divergent, yaw_divergent)
-            assert_in_delta(result.position_error_norm, position_error_norm, 1e-3)
-            assert_in_delta(result.roll_error.rad, roll_error, 1e-3)
-            assert_in_delta(result.pitch_error.rad, pitch_error, 1e-3)
-            assert_in_delta(result.yaw_error.rad, yaw_error, 1e-3)
+            assert_equal(position_divergent, result.position_divergent)
+            assert_equal(roll_divergent, result.roll_divergent)
+            assert_equal(pitch_divergent, result.pitch_divergent)
+            assert_equal(yaw_divergent, result.yaw_divergent)
+            assert_in_delta(position_error, result.position_error, 1e-3)
+            assert_in_delta(roll_error, result.roll_error.rad, 1e-3)
+            assert_in_delta(pitch_error, result.pitch_error.rad, 1e-3)
+            assert_in_delta(yaw_error, result.yaw_error.rad, 1e-3)
         end
     end
 
