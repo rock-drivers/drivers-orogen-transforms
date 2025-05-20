@@ -19,15 +19,15 @@ namespace transforms {
         bool roll_divergent = false;
         bool pitch_divergent = false;
         bool yaw_divergent = false;
-        double position_error_norm = base::unknown<double>();
+        float position_error = base::unknown<float>();
         base::Angle roll_error;
         base::Angle yaw_error;
         base::Angle pitch_error;
     };
     struct AngleErrorThresholds {
-        double roll = base::unknown<double>();
-        double pitch = base::unknown<double>();
-        double yaw = base::unknown<double>();
+        base::Angle roll;
+        base::Angle pitch;
+        base::Angle yaw;
     };
 }
 
