@@ -212,22 +212,20 @@ PoseDivergence RedundantRBSSelectorTask::checkDivergences(
     samples::RigidBodyState const& second)
 {
     PoseDivergence divergence;
-    divergence.time = base::Time::now();
-    divergence.position_error_norm = (first.position - second.position).norm();
+    divergence.time = Time::now();
+    divergence.position_error = (first.position - second.position).norm();
     divergence.position_divergent =
-        divergence.position_error_norm > m_position_error_threshold;
-    divergence.roll_error =
-        base::Angle::fromRad(first.getRoll()) - base::Angle::fromRad(second.getRoll());
-    divergence.pitch_error =
-        base::Angle::fromRad(first.getPitch()) - base::Angle::fromRad(second.getPitch());
-    divergence.yaw_error =
-        base::Angle::fromRad(first.getYaw()) - base::Angle::fromRad(second.getYaw());
-    divergence.roll_divergent =
-        std::fabs(divergence.roll_error.getRad()) > m_angles_error_thresholds.roll;
-    divergence.pitch_divergent =
-        std::fabs(divergence.pitch_error.getRad()) > m_angles_error_thresholds.pitch;
-    divergence.yaw_divergent =
-        std::fabs(divergence.yaw_error.getRad()) > m_angles_error_thresholds.yaw;
+        divergence.position_error > m_position_error_threshold;
+
+    Vector3d diff_orientation =
+        getEuler(first.orientation) - getEuler(second.orientation);
+
+    divergence.roll_error = Angle::fromRad(std::fabs(diff_orientation[2]));
+    divergence.pitch_error = Angle::fromRad(std::fabs(diff_orientation[1]));
+    divergence.yaw_error = Angle::fromRad(std::fabs(diff_orientation[0]));
+    divergence.roll_divergent = divergence.roll_error > m_angles_error_thresholds.roll;
+    divergence.pitch_divergent = divergence.pitch_error > m_angles_error_thresholds.pitch;
+    divergence.yaw_divergent = divergence.yaw_error > m_angles_error_thresholds.yaw;
     return divergence;
 }
 
