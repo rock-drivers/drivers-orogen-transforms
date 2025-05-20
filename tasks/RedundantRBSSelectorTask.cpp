@@ -125,7 +125,6 @@ bool RedundantRBSSelectorTask::updateMainSource(samples::RigidBodyState const& r
         m_internal_state.main_source_deadline = base::Time::now() + m_source_timeout;
         return true;
     }
-
     return false;
 }
 
@@ -135,7 +134,6 @@ bool RedundantRBSSelectorTask::updateSecondarySource(samples::RigidBodyState con
         m_internal_state.secondary_source_deadline = base::Time::now() + m_source_timeout;
         return true;
     }
-
     return false;
 }
 
@@ -155,9 +153,11 @@ void RedundantRBSSelectorTask::updateHook()
         secondary_is_new_and_valid = updateSecondarySource(secondary_rbs);
     }
 
-    if (main_is_new_and_valid && secondary_is_new_and_valid) {
-        PoseDivergence pose_divergence = checkDivergences(main_rbs, secondary_rbs);
-        _pose_divergence.write(pose_divergence);
+    if (main_is_new_and_valid || secondary_is_new_and_valid) {
+        if (rbsIsValid(main_rbs) && rbsIsValid(secondary_rbs)) {
+            PoseDivergence pose_divergence = checkDivergences(main_rbs, secondary_rbs);
+            _pose_divergence.write(pose_divergence);
+        }
     }
 
     switch (state()) {
