@@ -17,11 +17,12 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         @task.properties.main_source_histeresys = Time.at(5)
         @task.properties.init_timeout = Time.at(1)
         @task.properties.position_error_threshold = 2
-        @task.properties.angles_error_thresholds = Types.transforms.AngleErrorThresholds.new(
-            roll: Types.base.Angle.new( rad: 0.5),
-            pitch: Types.base.Angle.new( rad: 0.4),
-            yaw: Types.base.Angle.new( rad: 0.3)
-        )
+        @task.properties.angles_error_thresholds =
+            Types.transforms.AngleErrorThresholds.new(
+                roll: Types.base.Angle.new( rad: 0.5),
+                pitch: Types.base.Angle.new( rad: 0.4),
+                yaw: Types.base.Angle.new( rad: 0.3)
+            )
 
         syskit_configure(@task)
     end
@@ -65,8 +66,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             assert_divergence(result, expected)
         end
 
-        it "returns false when the position difference is smaller than the position "\
-        "threshold" do
+        it "does not return a divergence in position if the position difference is "\
+        "smaller than the position threshold" do
             main_w = syskit_create_writer task.main_rbs_source_port
             secondary_w = syskit_create_writer task.secondary_rbs_source_port
             expect_execution { task.start! }.to { emit task.both_sources_valid_event }
@@ -102,7 +103,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             assert_divergence(result, expected)
         end
 
-        it "returns false when the yaw difference is smaller than its threshold" do
+        it "does not return a divergence in yaw if the yaw difference is smaller than "\
+        "its threshold" do
             main_w = syskit_create_writer task.main_rbs_source_port
             secondary_w = syskit_create_writer task.secondary_rbs_source_port
             expect_execution { task.start! }.to { emit task.both_sources_valid_event }
@@ -142,7 +144,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             assert_divergence(result, expected)
         end
 
-        it "returns false when the pitch difference is smaller than its threshold" do
+        it "does not return a divergence in pitch if  the pitch difference is smaller "\
+        "than its threshold" do
             main_w = syskit_create_writer task.main_rbs_source_port
             secondary_w = syskit_create_writer task.secondary_rbs_source_port
             expect_execution { task.start! }.to { emit task.both_sources_valid_event }
@@ -182,7 +185,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             assert_divergence(result, expected)
         end
 
-        it "returns false when the roll difference is smaller than its threshold" do
+        it "does not return a divergence in roll if the roll difference is smaller than "\
+        "its threshold" do
             main_w = syskit_create_writer task.main_rbs_source_port
             secondary_w = syskit_create_writer task.secondary_rbs_source_port
             expect_execution { task.start! }.to { emit task.both_sources_valid_event }
