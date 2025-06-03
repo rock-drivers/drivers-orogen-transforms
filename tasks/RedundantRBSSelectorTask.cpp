@@ -9,6 +9,7 @@ bool rbsIsValid(base::samples::RigidBodyState const& rbs);
 RedundantRBSSelectorTask::RedundantRBSSelectorTask(std::string const& name)
     : RedundantRBSSelectorTaskBase(name)
 {
+    _init_timeout.set(base::Time::fromSeconds(1));
 }
 
 RedundantRBSSelectorTask::~RedundantRBSSelectorTask()
@@ -33,10 +34,7 @@ bool RedundantRBSSelectorTask::startHook()
         return false;
 
     m_internal_state = InternalState();
-    m_internal_state.main_source_deadline = m_internal_state.secondary_source_deadline =
-        base::Time::now() + m_source_timeout;
-
-    m_first_cycle = true;
+    m_internal_state.init_deadline = base::Time::now() + _init_timeout.get();
     return true;
 }
 
@@ -60,10 +58,22 @@ RedundantRBSSelectorTask::States updateState(
 
     bool main_valid = isMainSourceValid(internal);
     bool secondary_valid = isSecondarySourceValid(internal);
-    if (!main_valid && !secondary_valid) {
+    bool init = (current_state == States::RUNNING) &&
+                (base::Time::now() < internal.init_deadline);
+
+    if (!init && !main_valid && !secondary_valid) {
         return States::NO_VALID_SOURCES;
     }
+
     switch (current_state) {
+        case States::RUNNING:
+            if (init) {
+                if (main_valid && secondary_valid) {
+                    return States::BOTH_SOURCES_VALID;
+                }
+                return States::RUNNING;
+            }
+            // !init -> fall through to BOTH_SOURCES_VALID
         case States::BOTH_SOURCES_VALID:
             if (!main_valid) {
                 return States::INVALID_MAIN_SOURCE;
@@ -126,11 +136,6 @@ void RedundantRBSSelectorTask::updateHook()
 {
     RedundantRBSSelectorTaskBase::updateHook();
 
-    if (m_first_cycle) {
-        m_first_cycle = false;
-        state(States::BOTH_SOURCES_VALID);
-    }
-
     bool main_is_new_and_valid{false};
     base::samples::RigidBodyState main_rbs;
     if (_main_rbs_source.read(main_rbs) == RTT::NewData) {
@@ -144,6 +149,8 @@ void RedundantRBSSelectorTask::updateHook()
     }
 
     switch (state()) {
+        case States::RUNNING:
+            break;
         case States::BOTH_SOURCES_VALID:
             m_internal_state.hysteresis_deadline = base::Time();
             break;
@@ -174,14 +181,17 @@ void RedundantRBSSelectorTask::updateHook()
         return exception(States::NO_VALID_SOURCES);
     }
 
-    if (state() == States::BOTH_SOURCES_VALID ||
-        state() == States::INVALID_SECONDARY_SOURCE) {
+    if (next_state == States::BOTH_SOURCES_VALID ||
+        next_state == States::INVALID_SECONDARY_SOURCE) {
         if (main_is_new_and_valid) {
             _rbs_out.write(main_rbs);
         }
     }
-    else if (secondary_is_new_and_valid) {
-        _rbs_out.write(secondary_rbs);
+    else if (next_state == States::INVALID_MAIN_SOURCE ||
+             next_state == States::MAIN_SOURCE_RECOVERING) {
+        if (secondary_is_new_and_valid) {
+            _rbs_out.write(secondary_rbs);
+        }
     }
 }
 void RedundantRBSSelectorTask::errorHook()

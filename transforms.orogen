@@ -85,6 +85,10 @@ end
 task_context "RedundantRBSSelectorTask" do
     needs_configuration
 
+    # How long the component should wait after its start to evaluate whether
+    # it has missing inputs
+    property "init_timeout", "/base/Time"
+
     # How long without valid data on a port before the source is considered
     # invalid
     #
