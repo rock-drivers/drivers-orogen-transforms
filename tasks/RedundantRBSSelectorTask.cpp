@@ -58,49 +58,39 @@ RedundantRBSSelectorTask::States updateState(
     using States = RedundantRBSSelectorTask::States;
     base::Time now = base::Time::now();
 
+    bool main_valid = isMainSourceValid(internal);
+    bool secondary_valid = isSecondarySourceValid(internal);
+    if (!main_valid && !secondary_valid) {
+        return States::NO_VALID_SOURCES;
+    }
     switch (current_state) {
         case States::BOTH_SOURCES_VALID:
-            if (!isMainSourceValid(internal)) {
-                if (!isSecondarySourceValid(internal)) {
-                    return States::NO_VALID_SOURCES;
-                }
+            if (!main_valid) {
                 return States::INVALID_MAIN_SOURCE;
             }
-
-            if (!isSecondarySourceValid(internal)) {
+            else if (!secondary_valid) {
                 return States::INVALID_SECONDARY_SOURCE;
             }
             return States::BOTH_SOURCES_VALID;
         case States::MAIN_SOURCE_RECOVERING:
-            if (!isMainSourceValid(internal)) {
-                if (!isSecondarySourceValid(internal)) {
-                    return States::NO_VALID_SOURCES;
-                }
+            if (!main_valid) {
                 return States::INVALID_MAIN_SOURCE;
             }
-
-            if (!isSecondarySourceValid(internal)) {
+            else if (!secondary_valid) {
                 return States::INVALID_SECONDARY_SOURCE;
             }
-
-            if (now < internal.hysteresis_deadline) {
-                return States::MAIN_SOURCE_RECOVERING;
+            else if (now > internal.hysteresis_deadline) {
+                return States::BOTH_SOURCES_VALID;
             }
 
-            return States::BOTH_SOURCES_VALID;
+            return States::MAIN_SOURCE_RECOVERING;
         case States::INVALID_MAIN_SOURCE:
-            if (!isSecondarySourceValid(internal)) {
-                return States::NO_VALID_SOURCES;
-            }
-            if (isMainSourceValid(internal)) {
+            if (main_valid) {
                 return States::MAIN_SOURCE_RECOVERING;
             }
             return States::INVALID_MAIN_SOURCE;
         case States::INVALID_SECONDARY_SOURCE:
-            if (!isMainSourceValid(internal)) {
-                return States::NO_VALID_SOURCES;
-            }
-            if (isSecondarySourceValid(internal)) {
+            if (secondary_valid) {
                 return States::BOTH_SOURCES_VALID;
             }
             return States::INVALID_SECONDARY_SOURCE;
