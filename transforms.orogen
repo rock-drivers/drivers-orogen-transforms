@@ -8,8 +8,6 @@ import_types_from "transformsTypes.hpp"
 import_types_from "std"
 import_types_from "base"
 
-typekit.export_types "/transforms/PoseDivergence"
-
 # Task that changes the source frame of a pose and twist combination expressed
 # as RigidBodyState
 #

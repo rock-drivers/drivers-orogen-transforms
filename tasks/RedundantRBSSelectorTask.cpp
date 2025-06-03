@@ -51,11 +51,6 @@ bool isSecondarySourceValid(RedundantRBSSelectorTask::InternalState const& state
     return base::Time::now() < state.secondary_source_deadline;
 }
 
-bool isDifferenceOutsideThreshold(double first, double second, double threshold)
-{
-    return std::abs(first - second) > threshold;
-}
-
 RedundantRBSSelectorTask::States updateState(
     RedundantRBSSelectorTask::States current_state,
     RedundantRBSSelectorTask::InternalState const& internal)
