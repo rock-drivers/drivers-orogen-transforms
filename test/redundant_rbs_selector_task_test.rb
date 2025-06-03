@@ -15,31 +15,30 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
 
         @task.properties.source_timeout = Time.at(1)
         @task.properties.main_source_histeresys = Time.at(5)
+        @task.properties.init_timeout = Time.at(1)
 
         syskit_configure(@task)
     end
 
     it "forwards main source when BOTH_SOURCES_VALID" do
-        expect_execution { task.start! }.to { emit task.both_sources_valid_event }
-
         main_w = syskit_create_writer task.main_rbs_source_port
         secondary_w = syskit_create_writer task.secondary_rbs_source_port
 
         main_rbs = rbs({ data: [1, 0, 0] })
         secondary_rbs = rbs({ data: [-1, 0, 0] })
-        out = expect_execution.poll do
+
+        out = expect_execution { task.start! }.poll do
             main_w.write main_rbs
             secondary_w.write secondary_rbs
         end.to do # rubocop:disable Style/MultilineBlockChain
-            custom_runtime_states.each do |state|
+            emit task.both_sources_valid_event
+            custom_runtime_states(except: ["both_sources_valid"]).each do |state|
                 not_emit task.send("#{state}_event")
             end
             have_new_samples(task.rbs_out_port, 20)
         end
 
-        out.each do |s|
-            assert_equal 1, s.position[0]
-        end
+        assert_equal([1] * 20, out.map { |v| v.position.x })
     end
 
     describe "validates rbs sources" do
@@ -171,16 +170,16 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
 
     describe "transitions from BOTH_SOURCES_VALID" do
         it "transitions to NO_VALID_SOURCES when port driven timeout" do
-            syskit_start(task)
-
-            expect_execution.to do
-                emit task.no_valid_sources_event
-                emit task.exception_event
-            end
+            expect_execution { task.start! }
+                .to do
+                    not_emit task.both_sources_valid_event
+                    emit task.no_valid_sources_event
+                    emit task.exception_event
+                end
         end
 
-        it "transitions from BOTH_SOURCES_VALID to INVALID_MAIN_SOURCE, \
-    when just secondary is available" do
+        it "transitions from BOTH_SOURCES_VALID to INVALID_MAIN_SOURCE, " \
+           "when just secondary is available" do
             syskit_start(task)
 
             secondary_w = syskit_create_writer task.secondary_rbs_source_port
@@ -194,8 +193,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
                 end
             end
         end
-        it "transitions from BOTH_SOURCES_VALID to INVALID_SECONDARY_SOURCE, \
-    when just secondary is available" do
+        it "transitions from BOTH_SOURCES_VALID to INVALID_SECONDARY_SOURCE, " \
+           "when just secondary is available" do
             syskit_start(task)
 
             main_w = syskit_create_writer task.main_rbs_source_port
@@ -252,7 +251,6 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
 
             [main_w, secondary_w]
         end
-
     end
 
     describe "transitions from INVALID_SECONDARY_SOURCE" do

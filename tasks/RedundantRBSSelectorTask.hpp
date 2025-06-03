@@ -39,6 +39,7 @@ namespace transforms {
             {
             }
 
+            base::Time init_deadline;
             base::Time main_source_deadline;
             base::Time secondary_source_deadline;
 
@@ -47,11 +48,9 @@ namespace transforms {
              * after being invalid
              */
             base::Time hysteresis_deadline;
-
         };
 
     protected:
-        bool m_first_cycle;
         base::Time m_source_timeout;
         base::Time m_main_source_hysteresis;
 
