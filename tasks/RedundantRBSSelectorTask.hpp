@@ -53,11 +53,23 @@ namespace transforms {
     protected:
         base::Time m_source_timeout;
         base::Time m_main_source_hysteresis;
+        double m_position_error_threshold;
+        AngleErrorThresholds m_angles_error_thresholds;
 
         InternalState m_internal_state;
 
         bool updateMainSource(base::samples::RigidBodyState const& rbs);
         bool updateSecondarySource(base::samples::RigidBodyState const& rbs);
+        /**
+         * @brief Checks if the difference between two poses are bigger than the
+         * thresholds
+         *
+         * @param first The first pose to compare
+         * @param second The second pose to compare
+         * @return PoseDivergence The divergences between the poses
+         */
+        PoseDivergence checkDivergences(base::samples::RigidBodyState const& first,
+            base::samples::RigidBodyState const& second);
 
     public:
         /** TaskContext constructor for RedundantRBSSelectorTask

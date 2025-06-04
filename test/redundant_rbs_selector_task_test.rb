@@ -16,6 +16,13 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         @task.properties.source_timeout = Time.at(1)
         @task.properties.main_source_histeresys = Time.at(5)
         @task.properties.init_timeout = Time.at(1)
+        @task.properties.position_error_threshold = 2
+        @task.properties.angles_error_thresholds =
+            Types.transforms.AngleErrorThresholds.new(
+                roll: Types.base.Angle.new( rad: 0.5),
+                pitch: Types.base.Angle.new( rad: 0.4),
+                yaw: Types.base.Angle.new( rad: 0.3)
+            )
 
         syskit_configure(@task)
     end
@@ -39,6 +46,180 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         end
 
         assert_equal([1] * 20, out.map { |v| v.position.x })
+    end
+
+    describe "pose comparation" do
+        it "returns true when the position diference is bigger than the position "\
+        "threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs = rbs({ data: [-5, 0, 0] })
+            result = expect_execution { task.start! }.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                emit task.both_sources_valid_event
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            expected = { position_divergent: 1, position_error: 6 }
+            assert_divergence(result, expected)
+        end
+
+        it "does not return a divergence in position if the position difference is "\
+        "smaller than the position threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs = rbs({ data: [2, 0, 0] })
+            result = expect_execution { task.start! }.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                emit task.both_sources_valid_event
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            expected = { position_error: 1 }
+            assert_divergence(result, expected)
+        end
+
+        it "returns true when the yaw difference is bigger than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.4, Eigen::Vector3.UnitZ)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0.2, Eigen::Vector3.UnitZ)
+            result = expect_execution { task.start! }.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                emit task.both_sources_valid_event
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            expected = { yaw_divergent: 1, yaw_error: 0.6 }
+            assert_divergence(result, expected)
+        end
+
+        it "does not return a divergence in yaw if the yaw difference is smaller than "\
+        "its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.2, Eigen::Vector3.UnitZ)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0, Eigen::Vector3.UnitZ)
+            result = expect_execution { task.start! }.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                emit task.both_sources_valid_event
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            expected = { yaw_error: 0.2 }
+            assert_divergence(result, expected)
+        end
+
+        it "returns true when the pitch difference is bigger than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.5, Eigen::Vector3.UnitY)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0, Eigen::Vector3.UnitY)
+            result = expect_execution { task.start! }.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                emit task.both_sources_valid_event
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            expected = { pitch_divergent: 1, pitch_error: 0.5 }
+            assert_divergence(result, expected)
+        end
+
+        it "does not return a divergence in pitch if  the pitch difference is smaller "\
+        "than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.3, Eigen::Vector3.UnitY)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0, Eigen::Vector3.UnitY)
+            result = expect_execution { task.start! }.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                emit task.both_sources_valid_event
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            expected = { pitch_error: 0.3 }
+            assert_divergence(result, expected)
+        end
+
+        it "returns true when the roll difference is bigger than its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(0.1, Eigen::Vector3.UnitX)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.6, Eigen::Vector3.UnitX)
+            result = expect_execution { task.start! }.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                emit task.both_sources_valid_event
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            expected = { roll_divergent: 1, roll_error: 0.7 }
+            assert_divergence(result, expected)
+        end
+
+        it "does not return a divergence in roll if the roll difference is smaller than "\
+        "its threshold" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.1, Eigen::Vector3.UnitX)
+            secondary_rbs = rbs({ data: [1, 0, 0] })
+            secondary_rbs.orientation =
+                Eigen::Quaternion.from_angle_axis(-0.3, Eigen::Vector3.UnitX)
+            result = expect_execution { task.start! }.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+            end.to do
+                emit task.both_sources_valid_event
+                have_one_new_sample(task.pose_divergence_port)
+            end
+            expected = { roll_error: 0.2 }
+            assert_divergence(result, expected)
+        end
+
+        def assert_divergence(
+            result, position_divergent: 0, roll_divergent: 0, pitch_divergent: 0,
+            yaw_divergent: 0, position_error: 0, roll_error: 0, pitch_error: 0,
+            yaw_error: 0
+        )
+            assert_equal(position_divergent, result.position_divergent)
+            assert_equal(roll_divergent, result.roll_divergent)
+            assert_equal(pitch_divergent, result.pitch_divergent)
+            assert_equal(yaw_divergent, result.yaw_divergent)
+            assert_in_delta(position_error, result.position_error, 1e-3)
+            assert_in_delta(roll_error, result.roll_error.rad, 1e-3)
+            assert_in_delta(pitch_error, result.pitch_error.rad, 1e-3)
+            assert_in_delta(yaw_error, result.yaw_error.rad, 1e-3)
+        end
     end
 
     describe "validates rbs sources" do
@@ -242,7 +423,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             main_w = syskit_create_writer task.main_rbs_source_port
             secondary_w = syskit_create_writer task.secondary_rbs_source_port
 
-            rbs_s = rbs( { data: [1, 2, 3] })
+            rbs_s = rbs({ data: [1, 2, 3] })
             expect_execution.poll do
                 secondary_w.write rbs_s
             end.to do
