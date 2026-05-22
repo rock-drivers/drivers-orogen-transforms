@@ -128,7 +128,8 @@ task_context "RedundantRBSSelectorTask" do
     input_port "main_rbs_source", "/base/samples/RigidBodyState"
     input_port "secondary_rbs_source", "/base/samples/RigidBodyState"
 
-    output_port "rbs_out", "/base/samples/RigidBodyState"
+    output_port("rbs_out", "/base/samples/RigidBodyState")
+        .triggered_on("main_rbs_source", "secondary_rbs_source")
     # Returns if two pose sources are outside thresholds
     output_port "pose_divergence", "/transforms/PoseDivergence"
 
