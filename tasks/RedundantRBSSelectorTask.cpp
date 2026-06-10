@@ -26,7 +26,7 @@ bool RedundantRBSSelectorTask::configureHook()
     if (!RedundantRBSSelectorTaskBase::configureHook())
         return false;
     m_source_timeout = _source_timeout.get();
-    m_main_source_hysteresis = _source_timeout.get();
+    m_main_source_hysteresis = _main_source_histeresys.get();
     m_position_error_threshold = _position_error_threshold.get();
     m_angles_error_thresholds = _angles_error_thresholds.get();
     return true;
