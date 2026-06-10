@@ -104,7 +104,7 @@ task_context "RedundantRBSSelectorTask" do
     # invalid
     #
     # This should be relatively high (e.g. 30s)
-    property "main_source_histeresys", "/base/Time"
+    property "main_source_hysteresis", "/base/Time"
     # The maximum position norm error between two pose sources
     property "position_error_threshold", "double"
     # The maximum euler angles error between two pose sources
