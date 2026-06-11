@@ -14,7 +14,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         )
 
         @task.properties.source_timeout = Time.at(1)
-        @task.properties.main_source_histeresys = Time.at(5)
+        @task.properties.main_source_hysteresis = Time.at(5)
         @task.properties.init_timeout = Time.at(1)
         @task.properties.position_error_threshold = 2
         @task.properties.angles_error_thresholds =
