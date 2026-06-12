@@ -160,24 +160,18 @@ void RedundantRBSSelectorTask::updateHook()
     }
 
     switch (state()) {
-        case States::RUNNING:
-            break;
-        case States::BOTH_SOURCES_VALID:
-            m_internal_state.hysteresis_deadline = base::Time();
-            break;
         case States::MAIN_SOURCE_RECOVERING:
             if (m_internal_state.hysteresis_deadline.isNull()) {
                 m_internal_state.hysteresis_deadline =
                     base::Time::now() + m_main_source_hysteresis;
             }
             break;
+        case States::RUNNING:
+        case States::BOTH_SOURCES_VALID:
         case States::INVALID_MAIN_SOURCE:
-            m_internal_state.hysteresis_deadline = base::Time();
-            break;
         case States::INVALID_SECONDARY_SOURCE:
-            m_internal_state.hysteresis_deadline = base::Time();
-            break;
         case States::NO_VALID_SOURCES:
+            m_internal_state.hysteresis_deadline = base::Time();
             break;
         default:
             throw std::invalid_argument("invalid controller state");
