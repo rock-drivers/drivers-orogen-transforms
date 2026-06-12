@@ -7,6 +7,7 @@ import_types_from "transformsTypes.hpp"
 
 import_types_from "std"
 import_types_from "base"
+import_types_from "gps_base"
 
 # Task that changes the source frame of a pose and twist combination expressed
 # as RigidBodyState
@@ -110,6 +111,7 @@ task_context "RedundantRBSSelectorTask" do
     # The maximum euler angles error between two pose sources
     property "angles_error_thresholds", "/transforms/AngleErrorThresholds"
 
+    input_port "main_gps", "/gps_base/Solution"
     input_port "main_rbs_source", "/base/samples/RigidBodyState"
     input_port "secondary_rbs_source", "/base/samples/RigidBodyState"
 

@@ -136,6 +136,9 @@ void RedundantRBSSelectorTask::updateHook()
 {
     RedundantRBSSelectorTaskBase::updateHook();
 
+    gps_base::Solution main_gps;
+    _main_gps.read(main_gps);
+
     bool main_is_new_and_valid{false};
     samples::RigidBodyState main_rbs;
     if (_main_rbs_source.read(main_rbs) == RTT::NewData) {
@@ -151,6 +154,7 @@ void RedundantRBSSelectorTask::updateHook()
     if (main_is_new_and_valid || secondary_is_new_and_valid) {
         if (rbsIsValid(main_rbs) && rbsIsValid(secondary_rbs)) {
             PoseDivergence pose_divergence = checkDivergences(main_rbs, secondary_rbs);
+            pose_divergence.main_gps = GPSInfo::fromSolution(main_gps);
             _pose_divergence.write(pose_divergence);
         }
     }
