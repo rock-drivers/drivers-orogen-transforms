@@ -208,6 +208,33 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             assert_divergence(result, expected)
         end
 
+        it "forwards gps solution type into pose divergence sample" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_gps_w = syskit_create_writer task.main_gps_port
+
+            rbs_s = rbs({ data: [1, 0, 0] })
+            gps_s = gps_solution(:RTK_FLOAT)
+            result = expect_execution { task.start! }.poll do
+                main_w.write rbs_s
+                secondary_w.write rbs_s
+                main_gps_w.write gps_s
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+                    .matching { |s| s.main_gps.solution == :RTK_FLOAT }
+            end
+
+            gps_s.positionType = :RTK_FIXED
+            result = expect_execution.poll do
+                main_w.write rbs_s
+                secondary_w.write rbs_s
+                main_gps_w.write gps_s
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+                    .matching { |s| s.main_gps.solution == :RTK_FIXED }
+            end
+        end
+
         def assert_divergence(
             result, position_divergent: 0, roll_divergent: 0, pitch_divergent: 0,
             yaw_divergent: 0, position_error: 0, roll_error: 0, pitch_error: 0,

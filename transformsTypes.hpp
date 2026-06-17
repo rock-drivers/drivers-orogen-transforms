@@ -16,7 +16,7 @@
 namespace transforms {
     struct GPSInfo {
         base::Time time;
-        gps_base::GPS_SOLUTION_TYPES main_gps_solution;
+        gps_base::GPS_SOLUTION_TYPES solution;
 
         static GPSInfo fromSolution(gps_base::Solution const& s)
         {
