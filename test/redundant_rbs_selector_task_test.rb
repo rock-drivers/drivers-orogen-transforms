@@ -326,27 +326,6 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end
         end
 
-        def transition_to_main_source_recovering
-            secondary_w = syskit_create_writer task.secondary_rbs_source_port
-            secondary_rbs = rbs({ data: [-1, 0, 0] })
-            expect_execution.poll do
-                secondary_w.write secondary_rbs
-            end.to do # rubocop:disable Style/MultilineBlockChain
-                emit task.invalid_main_source_event
-            end
-
-            main_rbs = rbs({ data: [1, 0, 0] })
-            main_w = syskit_create_writer task.main_rbs_source_port
-
-            expect_execution do
-                main_w.write main_rbs
-                secondary_w.write secondary_rbs
-            end.to do # rubocop:disable Style/MultilineBlockChain
-                emit task.main_source_recovering_event
-            end
-
-            [main_w, secondary_w]
-        end
     end
 
     describe "transitions from BOTH_SOURCES_VALID" do
@@ -478,6 +457,28 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
 
             [main_w, secondary_w]
         end
+    end
+
+    def transition_to_main_source_recovering
+        secondary_w = syskit_create_writer task.secondary_rbs_source_port
+        secondary_rbs = rbs({ data: [-1, 0, 0] })
+        expect_execution.poll do
+            secondary_w.write secondary_rbs
+        end.to do # rubocop:disable Style/MultilineBlockChain
+            emit task.invalid_main_source_event
+        end
+
+        main_rbs = rbs({ data: [1, 0, 0] })
+        main_w = syskit_create_writer task.main_rbs_source_port
+
+        expect_execution do
+            main_w.write main_rbs
+            secondary_w.write secondary_rbs
+        end.to do # rubocop:disable Style/MultilineBlockChain
+            emit task.main_source_recovering_event
+        end
+
+        [main_w, secondary_w]
     end
 
     def custom_runtime_states(except: [])
