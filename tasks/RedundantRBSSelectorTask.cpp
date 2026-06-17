@@ -11,6 +11,8 @@ RedundantRBSSelectorTask::RedundantRBSSelectorTask(std::string const& name)
     : RedundantRBSSelectorTaskBase(name)
 {
     _init_timeout.set(base::Time::fromSeconds(1));
+    _main_source_hysteresis.set(base::Time::fromSeconds(30));
+    _main_gps_rtk_fixed_timeout.set(base::Time::fromSeconds(5));
 }
 
 RedundantRBSSelectorTask::~RedundantRBSSelectorTask()
@@ -29,6 +31,9 @@ bool RedundantRBSSelectorTask::configureHook()
     m_main_source_hysteresis = _main_source_hysteresis.get();
     m_position_error_threshold = _position_error_threshold.get();
     m_angles_error_thresholds = _angles_error_thresholds.get();
+    m_main_gps_rtk_fixed_timeout = _main_gps_rtk_fixed_timeout.get();
+    m_using_gnss_heading = _using_gnss_heading.get();
+
     return true;
 }
 bool RedundantRBSSelectorTask::startHook()
@@ -39,6 +44,11 @@ bool RedundantRBSSelectorTask::startHook()
     m_internal_state = InternalState();
     m_internal_state.init_deadline = base::Time::now() + _init_timeout.get();
     return true;
+}
+
+bool isMainGNSSHeadingValid(RedundantRBSSelectorTask::InternalState const& state)
+{
+    return base::Time::now() < state.main_rtk_fixed_deadline;
 }
 
 bool isMainSourceValid(RedundantRBSSelectorTask::InternalState const& state)
@@ -53,7 +63,8 @@ bool isSecondarySourceValid(RedundantRBSSelectorTask::InternalState const& state
 
 RedundantRBSSelectorTask::States updateState(
     RedundantRBSSelectorTask::States current_state,
-    RedundantRBSSelectorTask::InternalState const& internal)
+    RedundantRBSSelectorTask::InternalState const& internal,
+    bool using_gnss_heading)
 {
     // for readability's sake
     using States = RedundantRBSSelectorTask::States;
@@ -61,9 +72,11 @@ RedundantRBSSelectorTask::States updateState(
 
     bool main_valid = isMainSourceValid(internal);
     bool secondary_valid = isSecondarySourceValid(internal);
-    bool init = (current_state == States::RUNNING) &&
-                (base::Time::now() < internal.init_deadline);
+    bool gnss_heading_valid = isMainGNSSHeadingValid(internal);
+    bool init = RedundantRBSSelectorTask::initializing(current_state, internal);
 
+    // gnss heading is not checked here since we still want to forward main without
+    // without gnss heading when secondary is not available
     if (!init && !main_valid && !secondary_valid) {
         return States::NO_VALID_SOURCES;
     }
@@ -84,6 +97,9 @@ RedundantRBSSelectorTask::States updateState(
             else if (!secondary_valid) {
                 return States::INVALID_SECONDARY_SOURCE;
             }
+            else if (using_gnss_heading && !gnss_heading_valid) {
+                return States::INVALID_MAIN_SOURCE_GNSS_HEADING;
+            }
             return States::BOTH_SOURCES_VALID;
         case States::MAIN_SOURCE_RECOVERING:
             if (!main_valid) {
@@ -92,11 +108,26 @@ RedundantRBSSelectorTask::States updateState(
             else if (!secondary_valid) {
                 return States::INVALID_SECONDARY_SOURCE;
             }
+            else if (using_gnss_heading && !gnss_heading_valid) {
+                return States::INVALID_MAIN_SOURCE_GNSS_HEADING;
+            }
             else if (now > internal.hysteresis_deadline) {
                 return States::BOTH_SOURCES_VALID;
             }
 
             return States::MAIN_SOURCE_RECOVERING;
+        case States::INVALID_MAIN_SOURCE_GNSS_HEADING:
+            if (!main_valid) {
+                return States::INVALID_MAIN_SOURCE;
+            }
+            else if (!secondary_valid) {
+                return States::INVALID_SECONDARY_SOURCE;
+            }
+            if (gnss_heading_valid) {
+                // goes to main source recovering and enter the hysteresis logic
+                return States::MAIN_SOURCE_RECOVERING;
+            }
+            return States::INVALID_MAIN_SOURCE_GNSS_HEADING;
         case States::INVALID_MAIN_SOURCE:
             if (main_valid) {
                 return States::MAIN_SOURCE_RECOVERING;
@@ -112,6 +143,15 @@ RedundantRBSSelectorTask::States updateState(
         default:
             throw std::invalid_argument("invalid controller state");
     }
+}
+bool RedundantRBSSelectorTask::initializing(States state, InternalState const& internal)
+{
+    return (state == States::RUNNING) && (base::Time::now() < internal.init_deadline);
+}
+
+bool RedundantRBSSelectorTask::initializing() const
+{
+    return initializing(state(), m_internal_state);
 }
 
 bool RedundantRBSSelectorTask::updateMainSource(samples::RigidBodyState const& rbs)
@@ -132,12 +172,25 @@ bool RedundantRBSSelectorTask::updateSecondarySource(samples::RigidBodyState con
     return false;
 }
 
+bool RedundantRBSSelectorTask::updateMainGPS(gps_base::Solution const& solution)
+{
+    if (solution.positionType == gps_base::GPS_SOLUTION_TYPES::RTK_FIXED) {
+        m_internal_state.main_rtk_fixed_deadline =
+            base::Time::now() + m_main_gps_rtk_fixed_timeout;
+        return true;
+    }
+
+    return false;
+}
+
 void RedundantRBSSelectorTask::updateHook()
 {
     RedundantRBSSelectorTaskBase::updateHook();
 
     gps_base::Solution main_gps;
-    _main_gps.read(main_gps);
+    if (_main_gps.read(main_gps, false) == RTT::NewData) {
+        updateMainGPS(main_gps);
+    }
 
     bool main_is_new_and_valid{false};
     samples::RigidBodyState main_rbs;
@@ -170,6 +223,7 @@ void RedundantRBSSelectorTask::updateHook()
         case States::BOTH_SOURCES_VALID:
         case States::INVALID_MAIN_SOURCE:
         case States::INVALID_SECONDARY_SOURCE:
+        case States::INVALID_MAIN_SOURCE_GNSS_HEADING:
         case States::NO_VALID_SOURCES:
             m_internal_state.hysteresis_deadline = base::Time();
             break;
@@ -177,13 +231,13 @@ void RedundantRBSSelectorTask::updateHook()
             throw std::invalid_argument("invalid controller state");
     }
 
-    States next_state = updateState(state(), m_internal_state);
-    if (next_state != state() && next_state != States::NO_VALID_SOURCES) {
-        state(next_state);
-    }
-
+    States next_state = updateState(state(), m_internal_state, m_using_gnss_heading);
     if (next_state == States::NO_VALID_SOURCES) {
         return exception(States::NO_VALID_SOURCES);
+    }
+
+    if (next_state != state() && next_state != States::NO_VALID_SOURCES) {
+        state(next_state);
     }
 
     if (next_state == States::BOTH_SOURCES_VALID ||
@@ -192,11 +246,8 @@ void RedundantRBSSelectorTask::updateHook()
             _rbs_out.write(main_rbs);
         }
     }
-    else if (next_state == States::INVALID_MAIN_SOURCE ||
-             next_state == States::MAIN_SOURCE_RECOVERING) {
-        if (secondary_is_new_and_valid) {
-            _rbs_out.write(secondary_rbs);
-        }
+    else if (!initializing() && secondary_is_new_and_valid) {
+        _rbs_out.write(secondary_rbs);
     }
 }
 
