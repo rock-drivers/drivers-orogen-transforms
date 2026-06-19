@@ -180,6 +180,7 @@ bool RedundantRBSSelectorTask::updateMainGPS(gps_base::Solution const& solution)
         return true;
     }
 
+    m_internal_state.main_rtk_fixed_deadline = base::Time();
     return false;
 }
 
