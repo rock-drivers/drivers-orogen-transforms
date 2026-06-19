@@ -8,5 +8,6 @@
   <license>LGPLv2</license>
 
   <depend package="drivers/orogen/transformer" />
+  <depend package="drivers/orogen/gps_base" />
   <test_depend package="tools/syskit" />
 </package>

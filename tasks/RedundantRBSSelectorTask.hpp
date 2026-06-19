@@ -3,6 +3,7 @@
 #ifndef TRANSFORMS_REDUNDANTRBSSELECTORTASK_TASK_HPP
 #define TRANSFORMS_REDUNDANTRBSSELECTORTASK_TASK_HPP
 
+#include "gps_base/BaseTypes.hpp"
 #include "transforms/RedundantRBSSelectorTaskBase.hpp"
 
 namespace transforms {
@@ -41,6 +42,7 @@ namespace transforms {
 
             base::Time init_deadline;
             base::Time main_source_deadline;
+            base::Time main_rtk_fixed_deadline;
             base::Time secondary_source_deadline;
 
             /**
@@ -51,13 +53,18 @@ namespace transforms {
         };
 
     protected:
+        bool m_using_gnss_heading;
         base::Time m_source_timeout;
+        base::Time m_main_gps_rtk_fixed_timeout;
         base::Time m_main_source_hysteresis;
         double m_position_error_threshold;
         AngleErrorThresholds m_angles_error_thresholds;
 
         InternalState m_internal_state;
 
+        bool initializing() const;
+
+        bool updateMainGPS(gps_base::Solution const& solution);
         bool updateMainSource(base::samples::RigidBodyState const& rbs);
         bool updateSecondarySource(base::samples::RigidBodyState const& rbs);
         /**
@@ -72,6 +79,7 @@ namespace transforms {
             base::samples::RigidBodyState const& second);
 
     public:
+        static bool initializing(States state, InternalState const& internal);
         /** TaskContext constructor for RedundantRBSSelectorTask
          * \param name Name of the task. This name needs to be unique to make it
          * identifiable via nameservices.

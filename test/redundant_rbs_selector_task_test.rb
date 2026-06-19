@@ -8,6 +8,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
     attr_reader :task
 
     before do
+        # below code is an attempt to reconfigure the component with the properties
+        # needed to enable rtk check, AFAIK there isn't a simpler way =(
         @task = syskit_deploy(
             OroGen.transforms.RedundantRBSSelectorTask
                   .deployed_as("test_task")
@@ -48,8 +50,8 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         assert_equal([1] * 20, out.map { |v| v.position.x })
     end
 
-    describe "pose comparation" do
-        it "returns true when the position diference is bigger than the position "\
+    describe "pose comparison" do
+        it "returns true when the position difference is bigger than the position "\
         "threshold" do
             main_w = syskit_create_writer task.main_rbs_source_port
             secondary_w = syskit_create_writer task.secondary_rbs_source_port
@@ -206,6 +208,33 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             assert_divergence(result, expected)
         end
 
+        it "forwards gps solution type into pose divergence sample" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            main_gps_w = syskit_create_writer task.main_gps_port
+
+            rbs_s = rbs({ data: [1, 0, 0] })
+            gps_s = gps_solution(:RTK_FLOAT)
+            result = expect_execution { task.start! }.poll do
+                main_w.write rbs_s
+                secondary_w.write rbs_s
+                main_gps_w.write gps_s
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+                    .matching { |s| s.main_gps.solution == :RTK_FLOAT }
+            end
+
+            gps_s.positionType = :RTK_FIXED
+            result = expect_execution.poll do
+                main_w.write rbs_s
+                secondary_w.write rbs_s
+                main_gps_w.write gps_s
+            end.to do
+                have_one_new_sample(task.pose_divergence_port)
+                    .matching { |s| s.main_gps.solution == :RTK_FIXED }
+            end
+        end
+
         def assert_divergence(
             result, position_divergent: 0, roll_divergent: 0, pitch_divergent: 0,
             yaw_divergent: 0, position_error: 0, roll_error: 0, pitch_error: 0,
@@ -326,27 +355,6 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end
         end
 
-        def transition_to_main_source_recovering
-            secondary_w = syskit_create_writer task.secondary_rbs_source_port
-            secondary_rbs = rbs({ data: [-1, 0, 0] })
-            expect_execution.poll do
-                secondary_w.write secondary_rbs
-            end.to do # rubocop:disable Style/MultilineBlockChain
-                emit task.invalid_main_source_event
-            end
-
-            main_rbs = rbs({ data: [1, 0, 0] })
-            main_w = syskit_create_writer task.main_rbs_source_port
-
-            expect_execution do
-                main_w.write main_rbs
-                secondary_w.write secondary_rbs
-            end.to do # rubocop:disable Style/MultilineBlockChain
-                emit task.main_source_recovering_event
-            end
-
-            [main_w, secondary_w]
-        end
     end
 
     describe "transitions from BOTH_SOURCES_VALID" do
@@ -375,7 +383,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end
         end
         it "transitions from BOTH_SOURCES_VALID to INVALID_SECONDARY_SOURCE, " \
-           "when just secondary is available" do
+           "when just main is available" do
             syskit_start(task)
 
             main_w = syskit_create_writer task.main_rbs_source_port
@@ -480,6 +488,182 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
         end
     end
 
+    describe "using_gnss_heading: true" do
+        before do
+            task.needs_reconfiguration!
+            @task = syskit_deploy(
+                OroGen.transforms.RedundantRBSSelectorTask
+                      .deployed_as("test_task")
+            )
+            expect_execution do
+                task.properties.init_timeout = Time.at(1)
+                task.properties.source_timeout = Time.at(1)
+                task.properties.main_source_hysteresis = Time.at(5)
+                task.properties.using_gnss_heading = true
+            end.garbage_collect(true).to_run
+
+            syskit_configure_and_start(task)
+        end
+
+        it "transitions from BOTH_SOURCES_VALID to INVALID_MAIN_SOURCE_GNSS_HEADING" do
+            main_w = syskit_create_writer task.main_rbs_source_port
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+
+            rbs_s = rbs({ data: [0, 0, 0] })
+            expect_execution.poll do
+                main_w.write rbs_s
+                secondary_w.write rbs_s
+            end.to do
+                emit task.both_sources_valid_event
+                emit task.invalid_main_source_gnss_heading_event
+                custom_runtime_states(
+                    except: %w[both_sources_valid invalid_main_source_gnss_heading]
+                ).each do |state|
+                    not_emit task.send("#{state}_event")
+                end
+            end
+        end
+
+        it "transitions from MAIN_SOURCE_RECOVERING to " \
+        "INVALID_MAIN_SOURCE_GNSS_HEADING" do
+            main_w, secondary_w, main_gps_w = transition_to_main_source_recovering
+
+            rbs_s = rbs({ data: [0, 1, 2] })
+            expect_execution.poll do
+                main_w.write rbs_s
+                secondary_w.write rbs_s
+                main_gps_w.write gps_solution(:RTK_FLOAT)
+            end.to do
+                emit task.invalid_main_source_gnss_heading_event
+                custom_runtime_states(
+                    except: %w[invalid_main_source_gnss_heading]
+                ).each do |state|
+                    not_emit task.send("#{state}_event")
+                end
+            end
+        end
+
+
+        it "transitions from INVALID_MAIN_SOURCE_GNSS_HEADING to "\
+        "INVALID_MAIN_SOURCE" do
+            _, secondary_rbs, _ = transition_to_invalid_main_source_gnss_heading
+
+            rbs_s = rbs({ data: [1, 3, 3] })
+            expect_execution.poll do
+                secondary_rbs.write rbs_s
+            end.to do
+                emit task.invalid_main_source_event
+                custom_runtime_states(
+                    except: %w[invalid_main_source]
+                ).each do |state|
+                    not_emit task.send("#{state}_event")
+                end
+            end
+        end
+
+        it "transitions from INVALID_MAIN_SOURCE_GNSS_HEADING to "\
+        "INVALID_SECONDARY_SOURCE" do
+            main_w, *_ = transition_to_invalid_main_source_gnss_heading
+
+            rbs_s = rbs({ data: [1, 3, 3] })
+            expect_execution.poll do
+                main_w.write rbs_s
+            end.to do
+                emit task.invalid_secondary_source_event
+                custom_runtime_states(
+                    except: %w[invalid_secondary_source]
+                ).each do |state|
+                    not_emit task.send("#{state}_event")
+                end
+            end
+        end
+
+        it "transitions from INVALID_MAIN_SOURCE_GNSS_HEADING to "\
+        "MAIN_SOURCE_RECOVERING" do
+            *_, main_gps_w = transition_to_invalid_main_source_gnss_heading
+
+            expect_execution do
+                main_gps_w.write gps_solution(:RTK_FIXED)
+            end.to do
+                emit task.main_source_recovering_event
+                custom_runtime_states(
+                    except: %w[main_source_recovering]
+                ).each do |state|
+                    not_emit task.send("#{state}_event")
+                end
+            end
+        end
+
+        it "forwards secondary source when INVALID_MAIN_SOURCE_GNSS_HEADING" do
+            main_w, secondary_rbs, _ = transition_to_invalid_main_source_gnss_heading
+
+            main_s = rbs({ data: [1, 0, 0] })
+            secondary_s = rbs({ data: [-1, 0, 0] })
+            out =
+                expect_execution.poll do
+                    main_w.write main_s
+                    secondary_rbs.write secondary_s
+                end.to do
+                    custom_runtime_states.each do |state|
+                        not_emit task.send("#{state}_event")
+                    end
+                    have_new_samples(task.rbs_out_port, 20)
+                end
+            assert_equal [-1] * 20, out.map { |rbs| rbs.position.x }
+        end
+
+        def transition_to_invalid_main_source_gnss_heading
+            secondary_w = syskit_create_writer task.secondary_rbs_source_port
+            secondary_rbs = rbs({ data: [-1, 0, 0] })
+
+            main_rbs = rbs({ data: [1, 0, 0] })
+            main_w = syskit_create_writer task.main_rbs_source_port
+
+            main_gps_w = syskit_create_writer task.main_gps_port
+            main_gps = gps_solution(:RTK_FLOAT)
+            expect_execution.poll do
+                main_w.write main_rbs
+                secondary_w.write secondary_rbs
+                main_gps_w.write main_gps
+            end.to do # rubocop:disable Style/MultilineBlockChain
+                emit task.both_sources_valid_event
+                emit task.invalid_main_source_gnss_heading_event
+                custom_runtime_states(
+                    except: %w[both_sources_valid invalid_main_source_gnss_heading]
+                ).each do |state|
+                    not_emit task.send("#{state}_event")
+                end
+            end
+
+            [main_w, secondary_w, main_gps_w]
+        end
+    end
+
+    def transition_to_main_source_recovering
+        secondary_w = syskit_create_writer task.secondary_rbs_source_port
+        secondary_rbs = rbs({ data: [-1, 0, 0] })
+        expect_execution.poll do
+            secondary_w.write secondary_rbs
+        end.to do # rubocop:disable Style/MultilineBlockChain
+            emit task.invalid_main_source_event
+        end
+
+        main_rbs = rbs({ data: [1, 0, 0] })
+        main_w = syskit_create_writer task.main_rbs_source_port
+        main_gps_w = syskit_create_writer task.main_gps_port
+        main_gps = gps_solution(:RTK_FIXED)
+
+        expect_execution do
+            main_w.write main_rbs
+            secondary_w.write secondary_rbs
+            main_gps_w.write  main_gps # totally ignored when use_gnss_heading: false
+        end.to do # rubocop:disable Style/MultilineBlockChain
+            emit task.main_source_recovering_event
+        end
+
+        [main_w, secondary_w, main_gps_w]
+    end
+
     def custom_runtime_states(except: [])
         %w[
             main_source_recovering
@@ -487,6 +671,7 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             invalid_secondary_source
             no_valid_sources
             both_sources_valid
+            invalid_main_source_gnss_heading
         ] - except
     end
 
@@ -502,6 +687,12 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             cov_velocity: cov3,
             angular_velocity: { data: [0] * 3 },
             cov_angular_velocity: cov3
+        )
+    end
+
+    def gps_solution(rtk)
+        Types.gps_base.Solution.new(
+            positionType: rtk
         )
     end
 end
