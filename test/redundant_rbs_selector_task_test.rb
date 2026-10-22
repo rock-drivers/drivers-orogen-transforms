@@ -425,20 +425,6 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
                 end
             end
         end
-
-        def transition_to_invalid_main_source
-            main_w = syskit_create_writer task.main_rbs_source_port
-            secondary_w = syskit_create_writer task.secondary_rbs_source_port
-
-            rbs_s = rbs({ data: [1, 2, 3] })
-            expect_execution.poll do
-                secondary_w.write rbs_s
-            end.to do
-                emit task.invalid_main_source_event
-            end
-
-            [main_w, secondary_w]
-        end
     end
 
     describe "transitions from INVALID_SECONDARY_SOURCE" do
@@ -542,6 +528,23 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
             end
         end
 
+        it "transitions from INVALID_MAIN_SOURCE to " \
+        "INVALID_MAIN_SOURCE_GNSS_HEADING" do
+            main_w, secondary_w = transition_to_invalid_main_source
+            rbs_main = rbs({ data: [0, 1, 2] })
+            rbs_secondary = rbs({ data: [0, 2, 4] })
+            expect_execution.poll do
+                main_w.write rbs_main
+                secondary_w.write rbs_secondary
+            end.to do
+                emit task.invalid_main_source_gnss_heading_event
+                custom_runtime_states(except: ["invalid_main_source_gnss_heading"])
+                    .each do |state|
+                        not_emit task.send("#{state}_event")
+                    end
+            end
+        end
+
 
         it "transitions from INVALID_MAIN_SOURCE_GNSS_HEADING to "\
         "INVALID_MAIN_SOURCE" do
@@ -636,6 +639,20 @@ describe OroGen.transforms.RedundantRBSSelectorTask do
 
             [main_w, secondary_w, main_gps_w]
         end
+    end
+
+    def transition_to_invalid_main_source
+        main_w = syskit_create_writer task.main_rbs_source_port
+        secondary_w = syskit_create_writer task.secondary_rbs_source_port
+
+        rbs_s = rbs({ data: [1, 2, 3] })
+        expect_execution.poll do
+            secondary_w.write rbs_s
+        end.to do
+            emit task.invalid_main_source_event
+        end
+
+        [main_w, secondary_w]
     end
 
     def transition_to_main_source_recovering
