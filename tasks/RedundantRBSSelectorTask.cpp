@@ -130,7 +130,10 @@ RedundantRBSSelectorTask::States updateState(
             return States::INVALID_MAIN_SOURCE_GNSS_HEADING;
         case States::INVALID_MAIN_SOURCE:
             if (main_valid) {
-                return States::MAIN_SOURCE_RECOVERING;
+                if (!using_gnss_heading || gnss_heading_valid) {
+                    return States::MAIN_SOURCE_RECOVERING;
+                }
+                return States::INVALID_MAIN_SOURCE_GNSS_HEADING;
             }
             return States::INVALID_MAIN_SOURCE;
         case States::INVALID_SECONDARY_SOURCE:
